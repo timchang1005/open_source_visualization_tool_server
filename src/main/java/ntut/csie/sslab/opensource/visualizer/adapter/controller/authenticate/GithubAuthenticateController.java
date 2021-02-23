@@ -4,8 +4,9 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.google.common.base.Splitter;
 import lombok.Data;
+import ntut.csie.sslab.opensource.visualizer.adapter.apicaller.GithubAPICaller;
 import ntut.csie.sslab.opensource.visualizer.adapter.presenter.GithubUserInfo;
-import org.springframework.http.HttpHeaders;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,38 +20,29 @@ import java.util.Map;
 @RequestMapping
 public class GithubAuthenticateController {
 
+    private final WebClient webClient;
+    private final GithubAPICaller githubAPICaller;
+
+    @Autowired
+    public GithubAuthenticateController(WebClient.Builder webClientBuilder, GithubAPICaller githubAPICaller) {
+        this.webClient = webClientBuilder.baseUrl("https://github.com/login/oauth/access_token").build();
+        this.githubAPICaller = githubAPICaller;
+    }
+
     @PostMapping("/authenticate")
     public GithubUserInfo getGithubUserInfo(@RequestBody GithubAuthenticateInput githubAuthenticateInput) {
-        WebClient webClient = WebClient.create("https://github.com/login/oauth/access_token");
-
         String paramsString = webClient.post()
                 .body(Mono.just(githubAuthenticateInput), GithubAuthenticateInput.class)
                 .retrieve()
                 .bodyToMono(String.class)
                 .block();
-        Map<String, String> map = Splitter.on("&").withKeyValueSeparator("=").split(paramsString);
-        String accessToken = map.get("access_token");
-
-//        WebClient webClient1 = WebClient.builder()
-//                .baseUrl("https://api.github.com")
-////                .defaultHeader(HttpHeaders.AUTHORIZATION, String.format("Bearer %s", accessToken))
-//                .build();
-        WebClient webClient1 = WebClient.create("https://api.github.com");
-
-        return webClient1.get()
-                .uri("/user")
-                .headers(httpHeaders -> {
-                    httpHeaders.setBearerAuth(accessToken);
-                })
-                .retrieve()
-                .bodyToMono(GithubUserInfo.class)
-                .block();
+        Map<String, String> keyValueMap = Splitter.on("&").withKeyValueSeparator("=").split(paramsString);
+        return githubAPICaller.getUserInfo(null, keyValueMap.get("access_token"));
     }
 
     @Data
     @JsonNaming(PropertyNamingStrategy.SnakeCaseStrategy.class)
-    static
-    class GithubAuthenticateInput {
+    private static class GithubAuthenticateInput {
         String clientId;
         String clientSecret;
         String code;
