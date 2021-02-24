@@ -1,6 +1,7 @@
 package ntut.csie.sslab.opensource.visualizer.framework.apicaller;
 
 import ntut.csie.sslab.opensource.visualizer.adapter.apicaller.GithubAPICaller;
+import ntut.csie.sslab.opensource.visualizer.adapter.controller.github.GetUserInfoController;
 import ntut.csie.sslab.opensource.visualizer.adapter.presenter.GithubUserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,11 +18,11 @@ public class GithubAPICallerImpl implements GithubAPICaller {
     }
 
     @Override
-    public GithubUserInfo getUserInfo(String userId, String accessToken) {
+    public GithubUserInfo getUserInfo(GetUserInfoController.GetUserInfoInput input) {
         return webClient.get()
-                .uri(userId==null ? "/user" : String.format("/users/%s", userId))
+                .uri(input.getUserId()==null ? "/user" : String.format("/users/%s", input.getUserId()))
                 .headers(httpHeaders -> {
-                    httpHeaders.setBearerAuth(accessToken);
+                    httpHeaders.setBearerAuth(input.getAccessToken());
                 })
                 .retrieve()
                 .bodyToMono(GithubUserInfo.class)
