@@ -1,7 +1,7 @@
 package ntut.csie.sslab.opensource.visualizer.adapter.controller.github;
 
 import lombok.Data;
-import ntut.csie.sslab.opensource.visualizer.adapter.apicaller.GithubAPICaller;
+import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAPICaller;
 import ntut.csie.sslab.opensource.visualizer.adapter.presenter.GithubUserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;

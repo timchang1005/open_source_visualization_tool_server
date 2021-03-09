@@ -1,4 +1,4 @@
-package ntut.csie.sslab.opensource.visualizer.adapter.apicaller;
+package ntut.csie.sslab.opensource.visualizer.usecase.apicaller;
 
 import ntut.csie.sslab.opensource.visualizer.adapter.controller.github.GithubAuthenticateController;
 

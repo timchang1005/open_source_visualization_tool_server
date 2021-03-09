@@ -1,8 +1,8 @@
-package ntut.csie.sslab.opensource.visualizer.framework.apicaller;
+package ntut.csie.sslab.opensource.visualizer.adapter.apicaller;
 
 import com.google.common.base.Splitter;
-import ntut.csie.sslab.opensource.visualizer.adapter.apicaller.GithubAuthenticator;
 import ntut.csie.sslab.opensource.visualizer.adapter.controller.github.GithubAuthenticateController;
+import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAuthenticator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;

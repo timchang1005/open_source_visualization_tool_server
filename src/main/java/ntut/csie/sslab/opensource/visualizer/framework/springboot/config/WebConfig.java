@@ -1,4 +1,4 @@
-package ntut.csie.sslab.opensource.visualizer.application.springboot.web.config;
+package ntut.csie.sslab.opensource.visualizer.framework.springboot.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
