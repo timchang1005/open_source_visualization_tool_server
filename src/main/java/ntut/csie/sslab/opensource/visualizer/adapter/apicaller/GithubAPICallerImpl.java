@@ -108,7 +108,6 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                                     clientResponse.bodyToMono(String.class))
                             .block();
 
-
                     JSONArray commitsJSON = (new JSONObject(responseInString)).getJSONObject("data")
                             .getJSONObject("repository")
                             .getJSONObject("defaultBranchRef")
