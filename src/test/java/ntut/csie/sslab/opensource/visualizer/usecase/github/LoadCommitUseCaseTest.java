@@ -27,8 +27,9 @@ public class LoadCommitUseCaseTest extends AbstractUseCaseTest {
 
         input.setRepoOwner(repoOwner);
         input.setRepoName(repoName);
-        input.setSinceTime(Instant.parse("2021-02-25T03:35:00.00Z"));
-//        input.setSinceTime(Instant.EPOCH);
+//        input.setSinceTime(Instant.parse("2021-02-25T03:35:00.00Z"));
+//        this would only read two commit
+        input.setSinceTime(Instant.EPOCH);
         input.setAccessToken(getGithubApiToken());
 
         loadCommitUseCase.execute(input, output);
@@ -36,6 +37,6 @@ public class LoadCommitUseCaseTest extends AbstractUseCaseTest {
         assertEquals(ExitCode.SUCCESS, output.getExitCode());
 
         List<GithubCommitDTO> commitDTOs = githubCommitRepository.findCommitByRepoOwnerAndRepoName(repoOwner, repoName);
-        assertEquals(2, commitDTOs.size());
+        assertEquals(3, commitDTOs.size());
     }
 }

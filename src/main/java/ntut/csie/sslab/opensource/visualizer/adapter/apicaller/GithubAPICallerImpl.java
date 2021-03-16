@@ -71,17 +71,17 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                     .getJSONObject("defaultBranchRef")
                     .getJSONObject("target")
                     .getJSONObject("history");
-            double totalCount = paginationInfo.getInt("totalCount");
+            int totalCount = paginationInfo.getInt("totalCount");
             if(totalCount != 0) {
                 String cursor = paginationInfo.getJSONObject("pageInfo").getString("startCursor").split(" ")[0];
-                for (int i = 1; i <= Math.ceil(totalCount/100); i++) {
+                for (int i = totalCount; i > 0; i-=100) {
                     Map<String, Object> map = new HashMap<>();
                     map.put("query",
                             "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {\n" +
                                 "defaultBranchRef {\n" +
                                     "target {\n" +
                                         "... on Commit {\n" +
-                                            "history (last: 100, before: \"" + String.format("%s %d", cursor, i*100) +"\") {\n" +
+                                            "history (last: " + Math.min(i, 100) + ", before: \"" + String.format("%s %d", cursor, i) +"\") {\n" +
                                                 "nodes {\n" +
                                                     "oid\n" +
                                                     "committedDate\n" +
