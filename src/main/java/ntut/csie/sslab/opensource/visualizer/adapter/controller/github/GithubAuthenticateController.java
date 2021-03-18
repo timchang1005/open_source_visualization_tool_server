@@ -25,13 +25,13 @@ public class GithubAuthenticateController {
     }
 
     @PostMapping("/authenticate")
-    public String getAccessToken(@RequestBody GithubAuthenticateInput input) {
-        return githubAuthenticator.authenticate(input);
+    public String getAccessToken(@RequestBody GithubAuthenticateRequest request) {
+        return githubAuthenticator.authenticate(request);
     }
 
     @Data
     @JsonNaming(PropertyNamingStrategy.SnakeCaseStrategy.class)
-    public static class GithubAuthenticateInput {
+    public static class GithubAuthenticateRequest {
         String clientId;
         String clientSecret;
         String code;

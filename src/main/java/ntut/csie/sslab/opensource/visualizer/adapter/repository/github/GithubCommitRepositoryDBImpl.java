@@ -6,6 +6,7 @@ import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitR
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,7 +47,22 @@ public class GithubCommitRepositoryDBImpl implements GithubCommitRepository {
     }
 
     @Override
-    public List<GithubCommitDTO> findCommitByRepoOwnerAndRepoName(String repoOwner, String repoName) {
+    public List<GithubCommitDTO> findBy(String repoOwner, String repoName) {
         return GithubCommitMapper.transformToDTO(githubCommitRepositoryPeer.findByRepoOwnerAndRepoName(repoOwner, repoName));
+    }
+
+    @Override
+    public List<GithubCommitDTO> findSince(String repoOwner, String repoName, Instant sinceTime) {
+        List<GithubCommitData> commits = githubCommitRepositoryPeer.findByRepoOwnerAndRepoNameAndCommittedDateAfter(repoOwner, repoName, sinceTime);
+        return GithubCommitMapper.transformToDTO(commits);
+    }
+
+    @Override
+    public Optional<GithubCommitDTO> findLastest(String repoOwner, String repoName) {
+        Optional<GithubCommitData> commit = githubCommitRepositoryPeer.findFirstByRepoOwnerAndRepoNameOrderByCommittedDateDesc(repoOwner, repoName);
+        if(commit.isPresent()) {
+            return Optional.of(GithubCommitMapper.transformToDTO(commit.get()));
+        }
+        return Optional.empty();
     }
 }

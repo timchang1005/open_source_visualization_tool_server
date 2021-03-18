@@ -20,9 +20,9 @@ public class GithubAuthenticatorImpl implements GithubAuthenticator {
     }
 
     @Override
-    public String authenticate(GithubAuthenticateController.GithubAuthenticateInput input) {
+    public String authenticate(GithubAuthenticateController.GithubAuthenticateRequest input) {
         String paramsString = webClient.post()
-                .body(Mono.just(input), GithubAuthenticateController.GithubAuthenticateInput.class)
+                .body(Mono.just(input), GithubAuthenticateController.GithubAuthenticateRequest.class)
                 .retrieve()
                 .bodyToMono(String.class)
                 .block();

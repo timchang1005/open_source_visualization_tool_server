@@ -21,12 +21,12 @@ public class GetUserInfoController {
     }
 
     @PostMapping("/user")
-    public GithubUserInfo getUserInfo(@RequestBody GetUserInfoInput input) {
-        return githubAPICaller.getUserInfo(input.getUserId(), input.getAccessToken());
+    public GithubUserInfo getUserInfo(@RequestBody GetUserInfoRequest request) {
+        return githubAPICaller.getUserInfo(request.getUserId(), request.getAccessToken());
     }
 
     @Data
-    public class GetUserInfoInput {
+    public static class GetUserInfoRequest {
         String userId;
         String accessToken;
     }
