@@ -17,17 +17,19 @@ public class GithubCommitInfo {
     private final int additions;
     private final int deletions;
 
-    public static GithubCommitInfo fromDTO(GithubCommitDTO dto) {
+    public static GithubCommitInfo fromDTO(GithubCommitDTO commit, String repoOwner, String repoName) {
         return new GithubCommitInfo(
-                dto.getRepoOwner(),
-                dto.getRepoName(),
-                dto.getAuthor(),
-                dto.getCommittedDate().toString(),
-                dto.getAdditions(),
-                dto.getDeletions());
+                repoOwner,
+                repoName,
+                commit.getAuthor(),
+                commit.getCommittedDate().toString(),
+                commit.getAdditions(),
+                commit.getDeletions());
     }
 
-    public static List<GithubCommitInfo> fromDTO(List<GithubCommitDTO> dtos) {
-        return dtos.stream().map(GithubCommitInfo::fromDTO).collect(Collectors.toList());
+    public static List<GithubCommitInfo> fromDTO(List<GithubCommitDTO> dtos, String repoOwner, String repoName) {
+        return dtos.stream()
+                .map(x -> fromDTO(x, repoOwner, repoName))
+                .collect(Collectors.toList());
     }
 }

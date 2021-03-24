@@ -8,5 +8,5 @@ import java.util.List;
 
 public interface GithubAPICaller {
     GithubUserInfo getUserInfo(String userId, String accessToken);
-    List<GithubCommitDTO> getCommits(String repoOwner, String repoName, Instant sinceTime, String accessToken);
+    List<GithubCommitDTO> getCommits(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken);
 }

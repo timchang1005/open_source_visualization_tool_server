@@ -1,4 +1,4 @@
-package ntut.csie.sslab.opensource.visualizer.adapter.repository.github;
+package ntut.csie.sslab.opensource.visualizer.adapter.repository.github.commit;
 
 import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;
@@ -20,10 +20,7 @@ public class GithubCommitData {
     private String id;
 
     @NotNull
-    private String repoOwner;
-
-    @NotNull
-    private String repoName;
+    private String repoId;
 
     @NotNull
     private String author;

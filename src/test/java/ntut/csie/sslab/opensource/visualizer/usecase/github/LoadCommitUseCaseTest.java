@@ -7,6 +7,7 @@ import ntut.csie.sslab.opensource.visualizer.usecase.common.Output;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.load.LoadCommitInput;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.load.LoadCommitUseCase;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoDTO;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -36,7 +37,8 @@ public class LoadCommitUseCaseTest extends AbstractUseCaseTest {
 
         assertEquals(ExitCode.SUCCESS, output.getExitCode());
 
-        List<GithubCommitDTO> commitDTOs = githubCommitRepository.findBy(repoOwner, repoName);
+        GithubRepoDTO repo = githubRepoRepository.findByOwnerAndName(repoOwner, repoName).get();
+        List<GithubCommitDTO> commitDTOs = githubCommitRepository.findByRepoId(repo.getId());
         assertEquals(3, commitDTOs.size());
     }
 }

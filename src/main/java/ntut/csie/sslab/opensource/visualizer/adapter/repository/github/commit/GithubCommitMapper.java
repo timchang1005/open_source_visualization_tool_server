@@ -1,4 +1,4 @@
-package ntut.csie.sslab.opensource.visualizer.adapter.repository.github;
+package ntut.csie.sslab.opensource.visualizer.adapter.repository.github.commit;
 
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitDTO;
 
@@ -10,8 +10,7 @@ public class GithubCommitMapper {
     public static GithubCommitDTO transformToDTO(GithubCommitData data) {
         return new GithubCommitDTO(
                 data.getId(),
-                data.getRepoOwner(),
-                data.getRepoName(),
+                data.getRepoId(),
                 data.getAuthor(),
                 data.getCommittedDate(),
                 data.getAdditions(),
@@ -28,8 +27,7 @@ public class GithubCommitMapper {
     public static GithubCommitData transformToData(GithubCommitDTO dto) {
         return new GithubCommitData(
                 dto.getId(),
-                dto.getRepoOwner(),
-                dto.getRepoName(),
+                dto.getRepoId(),
                 dto.getAuthor(),
                 dto.getCommittedDate(),
                 dto.getAdditions(),

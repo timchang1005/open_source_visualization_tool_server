@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface GithubCommitRepository extends Repository<GithubCommitDTO, String> {
-    List<GithubCommitDTO> findBy(String repoOwner, String repoName);
-    List<GithubCommitDTO> findSince(String repoOwner, String repoName, Instant sinceTime);
-    Optional<GithubCommitDTO> findLastest(String repoOwner, String repoName);
+    List<GithubCommitDTO> findByRepoId(String repoId);
+    List<GithubCommitDTO> findSince(String repoId, Instant sinceTime);
+    Optional<GithubCommitDTO> findLatest(String repoId);
 }

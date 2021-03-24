@@ -11,8 +11,7 @@ import java.time.Instant;
 @AllArgsConstructor
 public class GithubCommitDTO {
     private String id;
-    private String repoOwner;
-    private String repoName;
+    private String repoId;
     private String author;
     private Instant committedDate;
     private int additions;

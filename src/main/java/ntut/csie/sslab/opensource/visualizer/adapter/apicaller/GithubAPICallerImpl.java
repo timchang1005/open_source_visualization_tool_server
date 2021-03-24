@@ -40,7 +40,7 @@ public class GithubAPICallerImpl implements GithubAPICaller {
     }
 
     @Override
-    public List<GithubCommitDTO> getCommits(String repoOwner, String repoName, Instant sinceTime, String accessToken) {
+    public List<GithubCommitDTO> getCommits(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken) {
         Map<String, Object> graphQL = new HashMap<>();
         graphQL.put("query", "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {" +
                                 "defaultBranchRef {" +
@@ -118,8 +118,7 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                             JSONObject commitJSON = commitsJSON.getJSONObject(j);
                             GithubCommitDTO data = new GithubCommitDTO(
                                     commitJSON.getString("oid"),
-                                    repoOwner,
-                                    repoName,
+                                    repoId,
                                     commitJSON.getJSONObject("author").getJSONObject("user").getString("login"),
                                     Instant.parse(commitJSON.getString("committedDate")),
                                     commitJSON.getInt("additions"),

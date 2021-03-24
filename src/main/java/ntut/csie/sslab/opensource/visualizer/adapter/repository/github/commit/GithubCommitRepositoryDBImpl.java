@@ -1,4 +1,4 @@
-package ntut.csie.sslab.opensource.visualizer.adapter.repository.github;
+package ntut.csie.sslab.opensource.visualizer.adapter.repository.github.commit;
 
 import com.google.common.collect.Lists;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitDTO;
@@ -47,19 +47,19 @@ public class GithubCommitRepositoryDBImpl implements GithubCommitRepository {
     }
 
     @Override
-    public List<GithubCommitDTO> findBy(String repoOwner, String repoName) {
-        return GithubCommitMapper.transformToDTO(githubCommitRepositoryPeer.findByRepoOwnerAndRepoName(repoOwner, repoName));
+    public List<GithubCommitDTO> findByRepoId(String repoId) {
+        return GithubCommitMapper.transformToDTO(githubCommitRepositoryPeer.findByRepoId(repoId));
     }
 
     @Override
-    public List<GithubCommitDTO> findSince(String repoOwner, String repoName, Instant sinceTime) {
-        List<GithubCommitData> commits = githubCommitRepositoryPeer.findByRepoOwnerAndRepoNameAndCommittedDateAfter(repoOwner, repoName, sinceTime);
+    public List<GithubCommitDTO> findSince(String repoId, Instant sinceTime) {
+        List<GithubCommitData> commits = githubCommitRepositoryPeer.findByRepoIdAndCommittedDateAfter(repoId, sinceTime);
         return GithubCommitMapper.transformToDTO(commits);
     }
 
     @Override
-    public Optional<GithubCommitDTO> findLastest(String repoOwner, String repoName) {
-        Optional<GithubCommitData> commit = githubCommitRepositoryPeer.findFirstByRepoOwnerAndRepoNameOrderByCommittedDateDesc(repoOwner, repoName);
+    public Optional<GithubCommitDTO> findLatest(String repoId) {
+        Optional<GithubCommitData> commit = githubCommitRepositoryPeer.findFirstByRepoIdOrderByCommittedDateDesc(repoId);
         if(commit.isPresent()) {
             return Optional.of(GithubCommitMapper.transformToDTO(commit.get()));
         }
