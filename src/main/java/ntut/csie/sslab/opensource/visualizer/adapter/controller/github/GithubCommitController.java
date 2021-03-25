@@ -23,14 +23,12 @@ import java.util.Optional;
 @RestController
 @RequestMapping(path="/api/v1")
 public class GithubCommitController {
-    private final GithubAPICaller githubAPICaller;
     private final GithubCommitRepository githubCommitRepository;
     private final GithubRepoRepository githubRepoRepository;
     private final LoadCommitUseCase loadCommitUseCase;
 
     @Autowired
     public GithubCommitController(GithubAPICaller githubAPICaller, GithubCommitRepository githubCommitRepository, GithubRepoRepository githubRepoRepository) {
-        this.githubAPICaller = githubAPICaller;
         this.githubCommitRepository = githubCommitRepository;
         this.githubRepoRepository = githubRepoRepository;
         this.loadCommitUseCase = new LoadCommitUseCaseImpl(githubAPICaller, githubCommitRepository, githubRepoRepository);

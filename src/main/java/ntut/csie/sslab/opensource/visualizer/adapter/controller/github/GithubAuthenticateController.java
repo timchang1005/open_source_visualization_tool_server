@@ -3,7 +3,6 @@ package ntut.csie.sslab.opensource.visualizer.adapter.controller.github;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import lombok.Data;
-import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAPICaller;
 import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAuthenticator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,12 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping
 public class GithubAuthenticateController {
 
-    private final GithubAPICaller githubAPICaller;
     private final GithubAuthenticator githubAuthenticator;
 
     @Autowired
-    public GithubAuthenticateController(GithubAPICaller githubAPICaller, GithubAuthenticator githubAuthenticator) {
-        this.githubAPICaller = githubAPICaller;
+    public GithubAuthenticateController(GithubAuthenticator githubAuthenticator) {
         this.githubAuthenticator = githubAuthenticator;
     }
 
