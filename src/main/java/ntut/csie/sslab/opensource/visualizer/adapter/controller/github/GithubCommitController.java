@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,21 +40,21 @@ public class GithubCommitController {
     public List<GithubCommitInfo> getCommits(@RequestParam String repoOwner,
                                              @RequestParam String repoName,
                                              @RequestParam(defaultValue = "1970-01-01T00:00:00Z") Instant sinceTime) {
-        GithubRepoDTO repo = githubRepoRepository.findByOwnerAndName(repoOwner, repoName).get();
-        List<GithubCommitDTO> commits = githubCommitRepository.findSince(repo.getId(), sinceTime);
-
-        return GithubCommitInfo.fromDTO(commits, repoOwner, repoName);
+        Optional<GithubRepoDTO> repo = githubRepoRepository.findByOwnerAndName(repoOwner, repoName);
+        if(repo.isPresent()) {
+            List<GithubCommitDTO> commits = githubCommitRepository.findSince(repo.get().getId(), sinceTime);
+            return GithubCommitInfo.fromDTO(commits, repoOwner, repoName);
+        }
+        return new ArrayList<>();
     }
 
     @PostMapping("/commits")
     public Output loadCommits(@RequestBody LoadCommitRequest request) {
         LoadCommitInput input = loadCommitUseCase.newInput();
         Output output = new UseCaseOutput();
-        Optional<GithubCommitDTO> lastCommit = githubCommitRepository.findLatest(request.getRepoOwner());
 
         input.setRepoOwner(request.getRepoOwner());
         input.setRepoName(request.getRepoName());
-        input.setSinceTime(lastCommit.isPresent() ? lastCommit.get().getCommittedDate() : Instant.EPOCH);
         input.setAccessToken(request.getAccessToken());
 
         loadCommitUseCase.execute(input, output);

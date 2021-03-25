@@ -12,7 +12,7 @@ import java.time.Instant;
 public class GithubCommitDTO {
     private String id;
     private String repoId;
-    private String author;
+    private String committer;
     private Instant committedDate;
     private int additions;
     private int deletions;

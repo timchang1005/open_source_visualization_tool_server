@@ -22,8 +22,7 @@ public class GithubCommitData {
     @NotNull
     private String repoId;
 
-    @NotNull
-    private String author;
+    private String committer;
 
     @NotNull
     private Instant committedDate;

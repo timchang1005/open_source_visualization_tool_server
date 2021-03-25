@@ -10,7 +10,6 @@ import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.load.LoadComm
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoDTO;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,9 +27,6 @@ public class LoadCommitUseCaseTest extends AbstractUseCaseTest {
 
         input.setRepoOwner(repoOwner);
         input.setRepoName(repoName);
-//        input.setSinceTime(Instant.parse("2021-02-25T03:35:00.00Z"));
-//        this would only read two commit
-        input.setSinceTime(Instant.EPOCH);
         input.setAccessToken(getGithubApiToken());
 
         loadCommitUseCase.execute(input, output);

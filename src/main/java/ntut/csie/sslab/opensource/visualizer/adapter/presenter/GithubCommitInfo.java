@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 public class GithubCommitInfo {
     private final String repoOwner;
     private final String repoName;
-    private final String author;
+    private final String committer;
     private final String committedDate;
     private final int additions;
     private final int deletions;
@@ -21,7 +21,7 @@ public class GithubCommitInfo {
         return new GithubCommitInfo(
                 repoOwner,
                 repoName,
-                commit.getAuthor(),
+                commit.getCommitter(),
                 commit.getCommittedDate().toString(),
                 commit.getAdditions(),
                 commit.getDeletions());

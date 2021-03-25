@@ -3,14 +3,16 @@ package ntut.csie.sslab.opensource.visualizer.usecase.github.commit.load;
 import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAPICaller;
 import ntut.csie.sslab.opensource.visualizer.usecase.common.ExitCode;
 import ntut.csie.sslab.opensource.visualizer.usecase.common.Output;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoDTO;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitRepository;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoDTO;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoRepository;
+import org.json.JSONException;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public class LoadCommitUseCaseImpl implements LoadCommitUseCase {
@@ -34,10 +36,16 @@ public class LoadCommitUseCaseImpl implements LoadCommitUseCase {
             githubRepoRepository.save(repo);
         }
 
-        List<GithubCommitDTO> commitDTOs = githubAPICaller.getCommits(repo.getId(), repo.getOwner(), repo.getName(), input.getSinceTime(), input.getAccessToken());
-        githubCommitRepository.save(commitDTOs);
+        Optional<GithubCommitDTO> lastCommit = githubCommitRepository.findLatest(repo.getId());
+        Instant sinceTime = lastCommit.isPresent() ? lastCommit.get().getCommittedDate() : Instant.EPOCH;
 
-        output.setExitCode(ExitCode.SUCCESS);
+        try {
+            List<GithubCommitDTO> commitDTOs = githubAPICaller.getCommits(repo.getId(), repo.getOwner(), repo.getName(), sinceTime, input.getAccessToken());
+            githubCommitRepository.save(commitDTOs);
+            output.setExitCode(ExitCode.SUCCESS);
+        } catch (JSONException | InterruptedException e) {
+            output.setExitCode(ExitCode.FAILURE);
+        }
     }
 
     @Override
@@ -69,16 +77,6 @@ public class LoadCommitUseCaseImpl implements LoadCommitUseCase {
         @Override
         public void setRepoName(String repoName) {
             this.repoName = repoName;
-        }
-
-        @Override
-        public Instant getSinceTime() {
-            return sinceTime;
-        }
-
-        @Override
-        public void setSinceTime(Instant sinceTime) {
-            this.sinceTime = sinceTime;
         }
 
         @Override

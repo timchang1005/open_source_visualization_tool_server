@@ -11,7 +11,7 @@ public class GithubCommitMapper {
         return new GithubCommitDTO(
                 data.getId(),
                 data.getRepoId(),
-                data.getAuthor(),
+                data.getCommitter(),
                 data.getCommittedDate(),
                 data.getAdditions(),
                 data.getDeletions()
@@ -28,7 +28,7 @@ public class GithubCommitMapper {
         return new GithubCommitData(
                 dto.getId(),
                 dto.getRepoId(),
-                dto.getAuthor(),
+                dto.getCommitter(),
                 dto.getCommittedDate(),
                 dto.getAdditions(),
                 dto.getDeletions()
