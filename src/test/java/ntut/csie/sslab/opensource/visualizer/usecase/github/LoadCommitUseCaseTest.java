@@ -35,6 +35,6 @@ public class LoadCommitUseCaseTest extends AbstractUseCaseTest {
 
         GithubRepoDTO repo = githubRepoRepository.findByOwnerAndName(repoOwner, repoName).get();
         List<GithubCommitDTO> commitDTOs = githubCommitRepository.findByRepoId(repo.getId());
-        assertEquals(3, commitDTOs.size());
+        assertEquals(4, commitDTOs.size());
     }
 }
