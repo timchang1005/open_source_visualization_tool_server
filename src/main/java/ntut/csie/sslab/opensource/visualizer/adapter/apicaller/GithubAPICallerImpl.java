@@ -3,6 +3,7 @@ package ntut.csie.sslab.opensource.visualizer.adapter.apicaller;
 import ntut.csie.sslab.opensource.visualizer.adapter.presenter.GithubUserInfo;
 import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAPICaller;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitDTO;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueDTO;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.tuple.Tuple;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -97,6 +99,18 @@ public class GithubAPICallerImpl implements GithubAPICaller {
         return commitDTOs;
     }
 
+    @Override
+    public List<GithubIssueDTO> getAllIssues(String repoId, String repoOwner, String repoName, String accessToken) {
+        int totalCount = GithubAPIV4Caller.getIssueAndPullRequestTotalCount(repoOwner, repoName, accessToken);
+        System.out.println(totalCount);
+        return null;
+    }
+
+    @Override
+    public List<GithubIssueDTO> getIssuesUpdatedSince(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken) {
+        return null;
+    }
+
     private static class GithubAPIV4Caller {
         public static JSONObject getCommitTotalCountAndStartCursor(String repoOwner, String repoName, Instant sinceTime, String accessToken) throws JSONException {
             Map<String, Object> graphQL = new HashMap<>();
@@ -155,6 +169,40 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                     .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
                     .block();
             return new JSONObject(responseString);
+        }
+
+        public static int getIssueAndPullRequestTotalCount(String repoOwner, String repoName, String accessToken) {
+            Map<String, Object> graphQL = new HashMap<>();
+            graphQL.put("query",
+                        "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {" +
+                            "issues {\n" +
+                                "totalCount\n" +
+                            "}\n" +
+                            "pullRequests {\n" +
+                                "totalCount\n" +
+                            "}\n" +
+                        "}}");
+            String responseString = webClient.post()
+                    .uri("/graphql")
+                    .body(BodyInserters.fromObject(graphQL))
+                    .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
+                    .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
+                    .block();
+            try {
+                JSONObject totalCountJSON = new JSONObject(responseString);
+                int issueTotalCount = totalCountJSON.getJSONObject("data")
+                        .getJSONObject("repository")
+                        .getJSONObject("issues")
+                        .getInt("totalCount");
+                int pullRequestTotalCount = totalCountJSON.getJSONObject("data")
+                        .getJSONObject("repository")
+                        .getJSONObject("pullRequests")
+                        .getInt("totalCount");
+                return issueTotalCount + pullRequestTotalCount;
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            return 0;
         }
     }
 }

@@ -1,59 +1,54 @@
-package ntut.csie.sslab.opensource.visualizer.usecase.github.commit.load;
+package ntut.csie.sslab.opensource.visualizer.usecase.github.issue.load;
 
 import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAPICaller;
 import ntut.csie.sslab.opensource.visualizer.usecase.common.ExitCode;
 import ntut.csie.sslab.opensource.visualizer.usecase.common.Output;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitDTO;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitRepository;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueDTO;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoRepository;
-import org.json.JSONException;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public class LoadCommitUseCaseImpl implements LoadCommitUseCase {
-
+public class LoadIssueUseCaseImpl implements LoadIssueUseCase {
     private final GithubAPICaller githubAPICaller;
-    private final GithubCommitRepository githubCommitRepository;
+    private final GithubIssueRepository githubIssueRepository;
     private final GithubRepoRepository githubRepoRepository;
 
-    @Autowired
-    public LoadCommitUseCaseImpl(GithubAPICaller githubAPICaller, GithubCommitRepository githubCommitRepository, GithubRepoRepository githubRepoRepository) {
+    public LoadIssueUseCaseImpl(GithubAPICaller githubAPICaller, GithubIssueRepository githubIssueRepository, GithubRepoRepository githubRepoRepository) {
         this.githubAPICaller = githubAPICaller;
-        this.githubCommitRepository = githubCommitRepository;
+        this.githubIssueRepository = githubIssueRepository;
         this.githubRepoRepository = githubRepoRepository;
     }
 
     @Override
-    public void execute(LoadCommitInput input, Output output) {
+    public void execute(LoadIssueInput input, Output output) {
         GithubRepoDTO repo = githubRepoRepository.findByOwnerAndName(input.getRepoOwner(), input.getRepoName()).orElse(null);
         if (repo == null) {
             repo = new GithubRepoDTO(UUID.randomUUID().toString(), input.getRepoOwner(), input.getRepoName());
             githubRepoRepository.save(repo);
         }
-
-        Optional<GithubCommitDTO> lastCommit = githubCommitRepository.findLatest(repo.getId());
-        Instant sinceTime = lastCommit.isPresent() ? lastCommit.get().getCommittedDate() : Instant.EPOCH;
-
-        try {
-            List<GithubCommitDTO> commitDTOs = githubAPICaller.getCommits(repo.getId(), repo.getOwner(), repo.getName(), sinceTime, input.getAccessToken());
-            githubCommitRepository.save(commitDTOs);
-            output.setExitCode(ExitCode.SUCCESS);
-        } catch (JSONException | InterruptedException e) {
-            output.setExitCode(ExitCode.FAILURE);
+        Optional<GithubIssueDTO> latestIssue = githubIssueRepository.findLatest(repo.getId());
+        if (latestIssue.isPresent()) {
+            Instant sinceTime = latestIssue.get().getUpdateAt();
+            List<GithubIssueDTO> issueDTOs = githubAPICaller.getIssuesUpdatedSince(repo.getId(), input.getRepoOwner(), input.getRepoName(), sinceTime, input.getAccessToken());
+            githubIssueRepository.save(issueDTOs);
+        } else {
+            List<GithubIssueDTO> issueDTOs = githubAPICaller.getAllIssues(repo.getId(), input.getRepoOwner(), input.getRepoName(), input.getAccessToken());
+            githubIssueRepository.save(issueDTOs);
         }
+        output.setExitCode(ExitCode.SUCCESS);
     }
 
     @Override
-    public LoadCommitInput newInput() {
-        return new LoadCommitInputImpl();
+    public LoadIssueInput newInput() {
+        return new LoadIssueInputImpl();
     }
 
-    private class LoadCommitInputImpl implements LoadCommitInput {
+    private class LoadIssueInputImpl implements LoadIssueInput {
         private String repoOwner;
         private String repoName;
         private String accessToken;
