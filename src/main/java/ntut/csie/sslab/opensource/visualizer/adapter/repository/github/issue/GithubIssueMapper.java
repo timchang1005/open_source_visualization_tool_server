@@ -1,7 +1,5 @@
 package ntut.csie.sslab.opensource.visualizer.adapter.repository.github.issue;
 
-import ntut.csie.sslab.opensource.visualizer.adapter.repository.github.commit.GithubCommitData;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueDTO;
 
 import java.util.List;
@@ -33,8 +31,8 @@ public class GithubIssueMapper {
                 dto.getRepoId(),
                 dto.getNumber(),
                 dto.getState(),
-                dto.getCreateAt(),
-                dto.getUpdateAt(),
+                dto.getCreatedAt(),
+                dto.getUpdatedAt(),
                 dto.getClosedAt()
         );
     }

@@ -14,7 +14,7 @@ public class GithubIssueDTO {
     private String repoId;
     private int number;
     private String state;
-    private Instant createAt;
-    private Instant updateAt;
+    private Instant createdAt;
+    private Instant updatedAt;
     private Instant closedAt;
 }

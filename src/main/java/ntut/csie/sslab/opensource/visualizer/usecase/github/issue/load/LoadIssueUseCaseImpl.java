@@ -31,16 +31,18 @@ public class LoadIssueUseCaseImpl implements LoadIssueUseCase {
             repo = new GithubRepoDTO(UUID.randomUUID().toString(), input.getRepoOwner(), input.getRepoName());
             githubRepoRepository.save(repo);
         }
+
         Optional<GithubIssueDTO> latestIssue = githubIssueRepository.findLatest(repo.getId());
-        if (latestIssue.isPresent()) {
-            Instant sinceTime = latestIssue.get().getUpdateAt();
-            List<GithubIssueDTO> issueDTOs = githubAPICaller.getIssuesUpdatedSince(repo.getId(), input.getRepoOwner(), input.getRepoName(), sinceTime, input.getAccessToken());
+        Instant sinceTime = latestIssue.isPresent() ? latestIssue.get().getUpdatedAt() : Instant.EPOCH;
+
+        List<GithubIssueDTO> issueDTOs = null;
+        try {
+            issueDTOs = githubAPICaller.getIssues(repo.getId(), repo.getOwner(), repo.getName(), sinceTime, input.getAccessToken());
             githubIssueRepository.save(issueDTOs);
-        } else {
-            List<GithubIssueDTO> issueDTOs = githubAPICaller.getAllIssues(repo.getId(), input.getRepoOwner(), input.getRepoName(), input.getAccessToken());
-            githubIssueRepository.save(issueDTOs);
+            output.setExitCode(ExitCode.SUCCESS);
+        } catch (InterruptedException e) {
+            output.setExitCode(ExitCode.FAILURE);
         }
-        output.setExitCode(ExitCode.SUCCESS);
     }
 
     @Override

@@ -34,6 +34,5 @@ public class GithubIssueData {
     @NotNull
     private Instant updatedAt;
 
-    @NotNull
     private Instant closedAt;
 }
