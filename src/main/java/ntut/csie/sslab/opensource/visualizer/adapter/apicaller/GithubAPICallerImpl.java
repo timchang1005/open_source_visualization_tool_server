@@ -11,6 +11,7 @@ import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -26,7 +27,14 @@ public class GithubAPICallerImpl implements GithubAPICaller {
 
     @Autowired
     public GithubAPICallerImpl(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.baseUrl("https://api.github.com").build();
+        this.webClient = webClientBuilder
+                            .exchangeStrategies(ExchangeStrategies.builder()
+                                .codecs(configurer ->
+                                    configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024)
+                                )
+                                .build())
+                            .baseUrl("https://api.github.com")
+                        .build();
     }
 
     @Override
@@ -212,7 +220,7 @@ public class GithubAPICallerImpl implements GithubAPICaller {
     private static class GithubAPIV3Caller {
         public static int getIssueAndPullRequestTotalCount(String repoOwner, String repoName, Instant sinceTime, String accessToken) {
             String totalCount = webClient.get()
-                    .uri(String.format("/repos/%s/%s/issues?per_page=1&state=all&sinceTime=%s", repoOwner, repoName, sinceTime.toString()))
+                    .uri(String.format("/repos/%s/%s/issues?per_page=1&state=all&since=%s", repoOwner, repoName, sinceTime.toString()))
                     .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
                     .exchangeToMono(clientResponse -> {
                         List<String> links = clientResponse.headers().header("Link");
