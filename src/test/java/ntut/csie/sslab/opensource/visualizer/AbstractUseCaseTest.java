@@ -7,6 +7,9 @@ import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitR
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.load.LoadIssueUseCase;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.load.LoadIssueUseCaseImpl;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.release.GithubReleaseRepository;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.release.load.LoadReleaseUseCase;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.release.load.LoadReleaseUseCaseImpl;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoRepository;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +37,9 @@ public abstract class AbstractUseCaseTest {
     protected GithubIssueRepository githubIssueRepository;
 
     @Autowired
+    protected GithubReleaseRepository githubReleaseRepository;
+
+    @Autowired
     protected GithubRepoRepository githubRepoRepository;
 
     protected String getGithubApiToken() {
@@ -46,5 +52,9 @@ public abstract class AbstractUseCaseTest {
 
     protected LoadIssueUseCase newLoadIssueUseCase() {
         return new LoadIssueUseCaseImpl(githubAPICaller, githubIssueRepository, githubRepoRepository);
+    }
+
+    protected LoadReleaseUseCase newLoadReleaseUseCase() {
+        return new LoadReleaseUseCaseImpl(githubAPICaller, githubReleaseRepository, githubRepoRepository);
     }
 }

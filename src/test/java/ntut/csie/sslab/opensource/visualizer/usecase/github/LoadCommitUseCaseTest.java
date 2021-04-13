@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class LoadCommitUseCaseTest extends AbstractUseCaseTest {
 
     @Test
-    public void load_all_commit_from_github() {
+    public void load_all_commits_from_github() {
         String repoOwner = "timchang1005";
         String repoName = "repo_for_testing";
 
