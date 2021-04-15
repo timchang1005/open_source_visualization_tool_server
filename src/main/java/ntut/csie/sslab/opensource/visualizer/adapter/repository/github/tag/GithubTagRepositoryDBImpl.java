@@ -1,7 +1,6 @@
 package ntut.csie.sslab.opensource.visualizer.adapter.repository.github.tag;
 
 import com.google.common.collect.Lists;
-import ntut.csie.sslab.opensource.visualizer.adapter.repository.github.repo.GithubRepoRepositoryPeer;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,12 +13,10 @@ import java.util.Optional;
 public class GithubTagRepositoryDBImpl implements GithubTagRepository {
 
     private final GithubTagRepositoryPeer githubTagRepositoryPeer;
-    private final GithubRepoRepositoryPeer githubRepoRepositoryPeer;
 
     @Autowired
-    public GithubTagRepositoryDBImpl(GithubTagRepositoryPeer githubTagRepositoryPeer, GithubRepoRepositoryPeer githubRepoRepositoryPeer) {
+    public GithubTagRepositoryDBImpl(GithubTagRepositoryPeer githubTagRepositoryPeer) {
         this.githubTagRepositoryPeer = githubTagRepositoryPeer;
-        this.githubRepoRepositoryPeer = githubRepoRepositoryPeer;
     }
 
     @Override
