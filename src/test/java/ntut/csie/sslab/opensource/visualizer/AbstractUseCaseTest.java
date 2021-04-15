@@ -1,16 +1,16 @@
 package ntut.csie.sslab.opensource.visualizer;
 
 import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAPICaller;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.load.LoadCommitUseCase;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.load.LoadCommitUseCaseImpl;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.load.LoadIssueUseCase;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.load.LoadIssueUseCaseImpl;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.release.GithubReleaseRepository;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.release.load.LoadReleaseUseCase;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.release.load.LoadReleaseUseCaseImpl;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoRepository;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagRepository;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.load.LoadTagUseCase;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.load.LoadTagUseCaseImpl;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -37,10 +37,10 @@ public abstract class AbstractUseCaseTest {
     protected GithubIssueRepository githubIssueRepository;
 
     @Autowired
-    protected GithubReleaseRepository githubReleaseRepository;
+    protected GithubRepoRepository githubRepoRepository;
 
     @Autowired
-    protected GithubRepoRepository githubRepoRepository;
+    protected GithubTagRepository githubTagRepository;
 
     protected String getGithubApiToken() {
         return githubConfig.getApiToken();
@@ -54,7 +54,7 @@ public abstract class AbstractUseCaseTest {
         return new LoadIssueUseCaseImpl(githubAPICaller, githubIssueRepository, githubRepoRepository);
     }
 
-    protected LoadReleaseUseCase newLoadReleaseUseCase() {
-        return new LoadReleaseUseCaseImpl(githubAPICaller, githubReleaseRepository, githubRepoRepository);
+    protected LoadTagUseCase newLoadTagUseCase() {
+        return new LoadTagUseCaseImpl(githubAPICaller, githubTagRepository, githubRepoRepository);
     }
 }

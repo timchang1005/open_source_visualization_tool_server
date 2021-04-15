@@ -1,4 +1,4 @@
-package ntut.csie.sslab.opensource.visualizer.usecase.github.release;
+package ntut.csie.sslab.opensource.visualizer.usecase.github.tag;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,10 +9,10 @@ import java.time.Instant;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class GithubReleaseDTO {
+public class GithubTagDTO {
     private String id;
     private String repoId;
-    private String publisher;
-    private String tagName;
-    private Instant publishedAt;
+    private String name;
+    private String tagger;
+    private Instant createdAt;
 }

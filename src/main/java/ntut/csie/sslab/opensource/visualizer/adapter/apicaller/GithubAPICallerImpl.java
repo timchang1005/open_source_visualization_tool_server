@@ -4,6 +4,7 @@ import ntut.csie.sslab.opensource.visualizer.adapter.presenter.GithubUserInfo;
 import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAPICaller;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueDTO;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagDTO;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -156,6 +157,83 @@ public class GithubAPICallerImpl implements GithubAPICaller {
         return issueDTOs;
     }
 
+    @Override
+    public List<GithubTagDTO> getTags(String repoId, String repoOwner, String repoName, String accessToken) throws InterruptedException {
+        final Object lock = new Object();
+        String cursor = "";
+        boolean hasNextPage = true;
+        List<GithubTagDTO> tagsFromGithub = new ArrayList<>();
+        List<Thread> githubTagWithoutTaggerLoaders = new ArrayList<>();
+        try {
+            while (hasNextPage) {
+                JSONObject tagsCompleteJSON = GithubAPIV4Caller.getTagsInfoWithPagination(
+                        repoOwner,
+                        repoName,
+                        cursor,
+                        accessToken
+                );
+                JSONArray tagsJSON = tagsCompleteJSON.getJSONObject("data")
+                        .getJSONObject("repository")
+                        .getJSONObject("refs")
+                        .getJSONArray("edges");
+                for (int i = 0; i < tagsJSON.length(); i++) {
+                    JSONObject tagJSON = tagsJSON.getJSONObject(i).getJSONObject("node");
+                    String tagName = tagJSON.getString("name");
+                    if (tagJSON.getJSONObject("target").length() == 0) {
+                        Thread githubTagLoader = new Thread(() -> {
+                            try {
+                                JSONObject tagWithoutTaggerJSON = GithubAPIV4Caller.getTagWithoutTagger(
+                                        repoOwner,
+                                        repoName,
+                                        tagName,
+                                        accessToken
+                                ).getJSONObject("data").getJSONObject("repository").getJSONObject("release");
+                                GithubTagDTO tag = new GithubTagDTO(
+                                        tagWithoutTaggerJSON.getString("id"),
+                                        repoId,
+                                        tagName,
+                                        tagWithoutTaggerJSON.getJSONObject("author").getString("login"),
+                                        Instant.parse(tagWithoutTaggerJSON.getString("createdAt"))
+                                );
+
+                                synchronized (lock) {
+                                    tagsFromGithub.add(tag);
+                                }
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+                        });
+                        githubTagLoader.start();
+                        githubTagWithoutTaggerLoaders.add(githubTagLoader);
+                    } else {
+                        GithubTagDTO tag = new GithubTagDTO(
+                                tagJSON.getJSONObject("target").getString("oid"),
+                                repoId,
+                                tagName,
+                                tagJSON.getJSONObject("target").getJSONObject("tagger").getJSONObject("user").getString("login"),
+                                Instant.parse(tagJSON.getJSONObject("target").getJSONObject("tagger").getString("date"))
+                        );
+                        synchronized (lock) {
+                            tagsFromGithub.add(tag);
+                        }
+                    }
+                }
+                JSONObject pageInfo = tagsCompleteJSON.getJSONObject("data")
+                        .getJSONObject("repository")
+                        .getJSONObject("refs")
+                        .getJSONObject("pageInfo");
+                cursor = pageInfo.getString("endCursor");
+                hasNextPage = pageInfo.getBoolean("hasNextPage");
+            }
+            for (Thread loader : githubTagWithoutTaggerLoaders) {
+                loader.join();
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return tagsFromGithub;
+    }
+
     private static class GithubAPIV4Caller {
         public static JSONObject getCommitTotalCountAndStartCursor(String repoOwner, String repoName, Instant sinceTime, String accessToken) throws JSONException {
             Map<String, Object> graphQL = new HashMap<>();
@@ -215,6 +293,64 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                     .block();
             return new JSONObject(responseString);
         }
+
+        public static JSONObject getTagsInfoWithPagination(String repoOwner, String repoName, String cursor, String accessToken) throws JSONException {
+            Map<String, Object> map = new HashMap<>();
+            map.put("query",
+                    "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {\n" +
+                        "refs(refPrefix: \"refs/tags/\", first: 100, after: \"" + cursor + "\") {\n" +
+                            "pageInfo {\n" +
+                                "hasNextPage\n" +
+                                "endCursor\n" +
+                            "}\n" +
+                            "edges {" +
+                                "cursor\n" +
+                                "node {\n" +
+                                    "name\n" +
+                                    "target {\n" +
+                                        "... on Tag {\n" +
+                                            "tagger {\n" +
+                                                "date\n" +
+                                                "user {\n" +
+                                                    "login\n" +
+                                                "}\n" +
+                                            "}\n" +
+                                            "oid\n" +
+                                        "}\n" +
+                                    "}\n" +
+                                "}\n" +
+                            "}\n" +
+                        "}\n" +
+                    "}}");
+            String responseString = webClient.post()
+                    .uri("/graphql")
+                    .body(BodyInserters.fromObject(map))
+                    .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
+                    .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
+                    .block();
+            return new JSONObject(responseString);
+        }
+
+        public static JSONObject getTagWithoutTagger(String repoOwner, String repoName, String tagName, String accessToken) throws JSONException {
+            Map<String, Object> map = new HashMap<>();
+            map.put("query",
+                    "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {\n" +
+                        "release(tagName: \"" + tagName + "\") {\n" +
+                            "createdAt\n" +
+                            "author {\n" +
+                                "login\n" +
+                            "}\n" +
+                            "id\n" +
+                        "}\n" +
+                    "}}");
+            String responseString = webClient.post()
+                    .uri("/graphql")
+                    .body(BodyInserters.fromObject(map))
+                    .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
+                    .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
+                    .block();
+            return new JSONObject(responseString);
+        }
     }
 
     private static class GithubAPIV3Caller {
@@ -238,6 +374,32 @@ public class GithubAPICallerImpl implements GithubAPICaller {
         public static JSONArray getIssuesAndPullRequestsInfoWithPagination(String repoOwner, String repoName, int page, String accessToken) throws JSONException {
             String responseString = webClient.get()
                     .uri(String.format("/repos/%s/%s/issues?per_page=100&state=all&page=%d", repoOwner, repoName, page))
+                    .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
+                    .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
+                    .block();
+            return new JSONArray(responseString);
+        }
+
+        public static int getTagTotalCount(String repoOwner, String repoName, String accessToken) {
+            String totalCount = webClient.get()
+                    .uri(String.format("/repos/%s/%s/tags?per_page=1", repoOwner, repoName))
+                    .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
+                    .exchangeToMono(clientResponse -> {
+                        List<String> links = clientResponse.headers().header("Link");
+                        if (links.isEmpty()) {
+                            return Mono.just("1");
+                        } else {
+                            String lastPage = Arrays.stream(links.get(0).split(", ")).filter(x -> x.contains("last")).findAny().get();
+                            return Mono.just(StringUtils.substringBetween(lastPage, "&page=", ">;"));
+                        }
+                    })
+                    .block();
+            return parseInt(totalCount);
+        }
+
+        public static JSONArray getTagsInfoWithPagination(String repoOwner, String repoName, int page, String accessToken) throws JSONException {
+            String responseString = webClient.get()
+                    .uri(String.format("/repos/%s/%s/tags?per_page=100&page=%d", repoOwner, repoName, page))
                     .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
                     .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
                     .block();

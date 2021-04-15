@@ -1,8 +1,8 @@
-package ntut.csie.sslab.opensource.visualizer.usecase.github.release.load;
+package ntut.csie.sslab.opensource.visualizer.usecase.github.tag.load;
 
 import ntut.csie.sslab.opensource.visualizer.usecase.common.Input;
 
-public interface LoadReleaseInput extends Input {
+public interface LoadTagInput extends Input {
     String getRepoOwner();
 
     void setRepoOwner(String repoOwner);

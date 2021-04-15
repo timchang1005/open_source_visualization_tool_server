@@ -1,4 +1,4 @@
-package ntut.csie.sslab.opensource.visualizer.adapter.repository.github.release;
+package ntut.csie.sslab.opensource.visualizer.adapter.repository.github.tag;
 
 import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;
@@ -13,7 +13,8 @@ import java.time.Instant;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class GithubReleaseData {
+public class GithubTagData {
+
     @Id
     @NotNull
     private String id;
@@ -22,11 +23,11 @@ public class GithubReleaseData {
     private String repoId;
 
     @NotNull
-    private String publisher;
+    private String name;
 
     @NotNull
-    private String tagName;
+    private String tagger;
 
     @NotNull
-    private Instant publishedAt;
+    private Instant createdAt;
 }
