@@ -25,7 +25,6 @@ public class GithubTagData {
     @NotNull
     private String name;
 
-    @NotNull
     private String tagger;
 
     @NotNull

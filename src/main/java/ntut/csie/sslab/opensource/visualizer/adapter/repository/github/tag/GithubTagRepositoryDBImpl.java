@@ -6,6 +6,7 @@ import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagReposit
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,5 +49,11 @@ public class GithubTagRepositoryDBImpl implements GithubTagRepository {
     @Override
     public List<GithubTagDTO> findByRepoId(String repoId) {
         return GithubTagMapper.transformToDTO(githubTagRepositoryPeer.findByRepoId(repoId));
+    }
+
+    @Override
+    public List<GithubTagDTO> findSince(String repoId, Instant sinceTime) {
+        List<GithubTagData> tags = githubTagRepositoryPeer.findByRepoIdAndCreatedAtAfter(repoId, sinceTime);
+        return GithubTagMapper.transformToDTO(tags);
     }
 }

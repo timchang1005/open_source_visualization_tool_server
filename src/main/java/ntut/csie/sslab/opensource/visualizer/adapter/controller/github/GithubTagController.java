@@ -3,6 +3,7 @@ package ntut.csie.sslab.opensource.visualizer.adapter.controller.github;
 import lombok.Data;
 import ntut.csie.sslab.opensource.visualizer.adapter.common.UseCaseOutput;
 import ntut.csie.sslab.opensource.visualizer.adapter.presenter.GithubTagInfo;
+import ntut.csie.sslab.opensource.visualizer.adapter.repository.github.tag.GithubTagMapper;
 import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAPICaller;
 import ntut.csie.sslab.opensource.visualizer.usecase.common.ExitCode;
 import ntut.csie.sslab.opensource.visualizer.usecase.common.Output;
@@ -14,55 +15,62 @@ import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.load.LoadComm
 import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoRepository;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagRepository;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.load.LoadTagInput;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.load.LoadTagUseCase;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.load.LoadTagUseCaseImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping(path="/api/v1")
 public class GithubTagController {
-    private final GithubAPICaller githubAPICaller;
-    private final GithubCommitRepository githubCommitRepository;
+    private final GithubTagRepository githubTagRepository;
     private final GithubRepoRepository githubRepoRepository;
-    private final LoadCommitUseCase loadCommitUseCase;
+    private final LoadTagUseCase loadTagUseCase;
 
     @Autowired
-    public GithubTagController(GithubAPICaller githubAPICaller, GithubCommitRepository githubCommitRepository, GithubRepoRepository githubRepoRepository) {
-        this.githubAPICaller = githubAPICaller;
-        this.githubCommitRepository = githubCommitRepository;
+    public GithubTagController(GithubAPICaller githubAPICaller, GithubTagRepository githubTagRepository, GithubRepoRepository githubRepoRepository) {
+        this.githubTagRepository = githubTagRepository;
         this.githubRepoRepository = githubRepoRepository;
-        this.loadCommitUseCase = new LoadCommitUseCaseImpl(githubAPICaller, githubCommitRepository, githubRepoRepository);
+        this.loadTagUseCase = new LoadTagUseCaseImpl(githubAPICaller, githubTagRepository, githubRepoRepository);
     }
 
     @GetMapping("/tags")
     public List<GithubTagInfo> getTags(@RequestParam String repoOwner,
                                        @RequestParam String repoName,
-                                       @RequestParam(defaultValue = "1970-01-01T00:00:00Z") Instant sinceTime,
-                                       @RequestBody GetTagsRequest request) throws InterruptedException {
-        LoadCommitInput input = loadCommitUseCase.newInput();
+                                       @RequestParam(defaultValue = "1970-01-01T00:00:00Z") Instant sinceTime) {
+        Optional<GithubRepoDTO> repo = githubRepoRepository.findByOwnerAndName(repoOwner, repoName);
+        if(repo.isPresent()) {
+            List<GithubTagDTO> tags = githubTagRepository.findSince(repo.get().getId(), sinceTime);
+            return GithubTagInfo.fromDTO(tags, repoOwner, repoName);
+        }
+        return new ArrayList<>();
+    }
+
+    @PostMapping("/tags")
+    public Output getTags(@RequestBody LoadTagsRequest request) {
+        LoadTagInput input = loadTagUseCase.newInput();
         Output output = new UseCaseOutput();
 
-        input.setRepoOwner(repoOwner);
-        input.setRepoName(repoName);
+        input.setRepoOwner(request.getRepoOwner());
+        input.setRepoName(request.getRepoName());
         input.setAccessToken(request.getAccessToken());
 
-        loadCommitUseCase.execute(input, output);
+        loadTagUseCase.execute(input, output);
 
-        List<GithubTagInfo> tagInfos = new ArrayList<>();
-        if (output.getExitCode().equals(ExitCode.SUCCESS)) {
-            GithubRepoDTO repo = githubRepoRepository.findByOwnerAndName(repoOwner, repoName).get();
-            List<GithubTagDTO> tags = githubAPICaller.getTags(repo.getId(), repoOwner, repoName, request.getAccessToken());
-            List<GithubCommitDTO> commits = githubCommitRepository.findByRepoId(repo.getId());
-            tagInfos.addAll(GithubTagInfo.fromDTO(tags, repoOwner, repoName));
-        }
-        return tagInfos;
+        return output;
     }
 
     @Data
-    private static class GetTagsRequest {
+    private static class LoadTagsRequest {
+        private String repoOwner;
+        private String repoName;
         private String accessToken;
     }
 }

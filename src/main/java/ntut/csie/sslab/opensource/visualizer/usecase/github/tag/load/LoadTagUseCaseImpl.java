@@ -34,7 +34,7 @@ public class LoadTagUseCaseImpl implements LoadTagUseCase {
             List<GithubTagDTO> tagDTOs = githubAPICaller.getTags(repo.getId(), repo.getOwner(), repo.getName(), input.getAccessToken());
             githubTagRepository.save(tagDTOs);
             output.setExitCode(ExitCode.SUCCESS);
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             output.setExitCode(ExitCode.FAILURE);
         }
     }
