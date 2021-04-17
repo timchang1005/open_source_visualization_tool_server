@@ -82,10 +82,15 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                     if (commits != null) {
                         for (int j = 0; j < commits.length(); j++) {
                             JSONObject commitJSON = commits.getJSONObject(j);
+                            String user = commitJSON.getJSONObject("committer").isNull("user") && commitJSON.getJSONObject("author").isNull("user") ?
+                                    null :
+                                    commitJSON.getJSONObject(
+                                            commitJSON.getJSONObject("committer").isNull("user") ? "author" : "committer"
+                                    ).getJSONObject("user").getString("login");
                             GithubCommitDTO commitDTO = new GithubCommitDTO(
                                     commitJSON.getString("oid"),
                                     repoId,
-                                    commitJSON.getJSONObject("committer").isNull("user") ? null : commitJSON.getJSONObject("committer").getJSONObject("user").getString("login"),
+                                    user,
                                     Instant.parse(commitJSON.getString("committedDate")),
                                     commitJSON.getInt("additions"),
                                     commitJSON.getInt("deletions")
@@ -97,7 +102,7 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                         }
                     }
                 } catch (JSONException e) {
-                    e.printStackTrace();
+                    throw new RuntimeException(e.getCause());
                 }
             });
             githubCommitLoaders.add(githubCommitLoader);
@@ -144,7 +149,7 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                         }
                     }
                 } catch (JSONException e) {
-                    e.printStackTrace();
+                    throw new RuntimeException(e.getCause());
                 }
             });
             githubIssueLoaders.add(githubIssueLoader);
@@ -159,57 +164,53 @@ public class GithubAPICallerImpl implements GithubAPICaller {
     }
 
     @Override
-    public List<GithubTagDTO> getTags(String repoId, String repoOwner, String repoName, String accessToken) {
+    public List<GithubTagDTO> getTags(String repoId, String repoOwner, String repoName, String accessToken) throws JSONException {
         String cursor = "";
         boolean hasNextPage = true;
         List<GithubTagDTO> tagsFromGithub = new ArrayList<>();
-        try {
-            while (hasNextPage) {
-                JSONObject tagsCompleteJSON = GithubAPIV4Caller.getTagsInfoWithPagination(
-                        repoOwner,
-                        repoName,
-                        cursor,
-                        accessToken
-                );
-                JSONArray tagsJSON = tagsCompleteJSON.getJSONObject("data")
-                        .getJSONObject("repository")
-                        .getJSONObject("refs")
-                        .getJSONArray("edges");
-                for (int i = 0; i < tagsJSON.length(); i++) {
-                    JSONObject tagJSON = tagsJSON.getJSONObject(i).getJSONObject("node");
-                    String tagName = tagJSON.getString("name");
-                    String oid = tagJSON.getJSONObject("target").getString("oid");
-                    String tagger;
-                    String createdAt;
-                    if (tagJSON.getJSONObject("target").length() == 3) {
-                        tagger = tagJSON.getJSONObject("target").getJSONObject("committer").isNull("user") ?
-                                null :
-                                tagJSON.getJSONObject("target").getJSONObject("committer").getJSONObject("user").getString("login");
-                        createdAt = tagJSON.getJSONObject("target").getString("committedDate");
-                    } else {
-                        tagger = tagJSON.getJSONObject("target").getJSONObject("tagger").isNull("user") ?
-                                null :
-                                tagJSON.getJSONObject("target").getJSONObject("tagger").getJSONObject("user").getString("login");
-                        createdAt = tagJSON.getJSONObject("target").getJSONObject("tagger").getString("date");
-                    }
-                    GithubTagDTO tag = new GithubTagDTO(
-                            oid,
-                            repoId,
-                            tagName,
-                            tagger,
-                            DateTimeFormatter.ISO_OFFSET_DATE_TIME.parse(createdAt, Instant::from)
-                    );
-                    tagsFromGithub.add(tag);
+        while (hasNextPage) {
+            JSONObject tagsCompleteJSON = GithubAPIV4Caller.getTagsInfoWithPagination(
+                    repoOwner,
+                    repoName,
+                    cursor,
+                    accessToken
+            );
+            JSONArray tagsJSON = tagsCompleteJSON.getJSONObject("data")
+                    .getJSONObject("repository")
+                    .getJSONObject("refs")
+                    .getJSONArray("edges");
+            for (int i = 0; i < tagsJSON.length(); i++) {
+                JSONObject tagJSON = tagsJSON.getJSONObject(i).getJSONObject("node");
+                String tagName = tagJSON.getString("name");
+                String oid = tagJSON.getJSONObject("target").getString("oid");
+                String tagger;
+                String createdAt;
+                if (tagJSON.getJSONObject("target").length() == 3) {
+                    tagger = tagJSON.getJSONObject("target").getJSONObject("committer").isNull("user") ?
+                            null :
+                            tagJSON.getJSONObject("target").getJSONObject("committer").getJSONObject("user").getString("login");
+                    createdAt = tagJSON.getJSONObject("target").getString("committedDate");
+                } else {
+                    tagger = tagJSON.getJSONObject("target").getJSONObject("tagger").isNull("user") ?
+                            null :
+                            tagJSON.getJSONObject("target").getJSONObject("tagger").getJSONObject("user").getString("login");
+                    createdAt = tagJSON.getJSONObject("target").getJSONObject("tagger").getString("date");
                 }
-                JSONObject pageInfo = tagsCompleteJSON.getJSONObject("data")
-                        .getJSONObject("repository")
-                        .getJSONObject("refs")
-                        .getJSONObject("pageInfo");
-                cursor = pageInfo.getString("endCursor");
-                hasNextPage = pageInfo.getBoolean("hasNextPage");
+                GithubTagDTO tag = new GithubTagDTO(
+                        oid,
+                        repoId,
+                        tagName,
+                        tagger,
+                        DateTimeFormatter.ISO_OFFSET_DATE_TIME.parse(createdAt, Instant::from)
+                );
+                tagsFromGithub.add(tag);
             }
-        } catch (JSONException e) {
-            e.printStackTrace();
+            JSONObject pageInfo = tagsCompleteJSON.getJSONObject("data")
+                    .getJSONObject("repository")
+                    .getJSONObject("refs")
+                    .getJSONObject("pageInfo");
+            cursor = pageInfo.getString("endCursor");
+            hasNextPage = pageInfo.getBoolean("hasNextPage");
         }
         return tagsFromGithub;
     }
@@ -255,6 +256,11 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                                             "additions\n" +
                                             "deletions\n" +
                                             "committer {\n" +
+                                                "user {\n" +
+                                                    "login\n" +
+                                                "}\n" +
+                                            "}\n" +
+                                            "author {\n" +
                                                 "user {\n" +
                                                     "login\n" +
                                                 "}\n" +

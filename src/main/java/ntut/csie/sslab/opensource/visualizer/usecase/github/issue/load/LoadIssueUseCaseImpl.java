@@ -35,13 +35,13 @@ public class LoadIssueUseCaseImpl implements LoadIssueUseCase {
         Optional<GithubIssueDTO> latestIssue = githubIssueRepository.findLatest(repo.getId());
         Instant sinceTime = latestIssue.isPresent() ? latestIssue.get().getUpdatedAt() : Instant.EPOCH;
 
-        List<GithubIssueDTO> issueDTOs = null;
         try {
-            issueDTOs = githubAPICaller.getIssues(repo.getId(), repo.getOwner(), repo.getName(), sinceTime, input.getAccessToken());
+            List<GithubIssueDTO> issueDTOs = githubAPICaller.getIssues(repo.getId(), repo.getOwner(), repo.getName(), sinceTime, input.getAccessToken());
             githubIssueRepository.save(issueDTOs);
             output.setExitCode(ExitCode.SUCCESS);
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             output.setExitCode(ExitCode.FAILURE);
+            output.setMessage(e.getMessage());
         }
     }
 

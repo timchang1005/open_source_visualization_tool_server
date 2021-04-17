@@ -43,8 +43,9 @@ public class LoadCommitUseCaseImpl implements LoadCommitUseCase {
             List<GithubCommitDTO> commitDTOs = githubAPICaller.getCommits(repo.getId(), repo.getOwner(), repo.getName(), sinceTime, input.getAccessToken());
             githubCommitRepository.save(commitDTOs);
             output.setExitCode(ExitCode.SUCCESS);
-        } catch (JSONException | InterruptedException e) {
+        } catch (Exception e) {
             output.setExitCode(ExitCode.FAILURE);
+            output.setMessage(e.getMessage());
         }
     }
 

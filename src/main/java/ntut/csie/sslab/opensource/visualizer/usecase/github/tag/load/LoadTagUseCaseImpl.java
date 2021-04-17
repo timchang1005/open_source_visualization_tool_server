@@ -36,6 +36,7 @@ public class LoadTagUseCaseImpl implements LoadTagUseCase {
             output.setExitCode(ExitCode.SUCCESS);
         } catch (Exception e) {
             output.setExitCode(ExitCode.FAILURE);
+            output.setMessage(e.getMessage());
         }
     }
 

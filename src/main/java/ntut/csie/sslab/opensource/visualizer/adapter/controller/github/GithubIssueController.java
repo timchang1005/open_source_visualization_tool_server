@@ -57,6 +57,11 @@ public class GithubIssueController {
 
         loadIssueUseCase.execute(input, output);
 
+        if(output.getMessage() != null) {
+            System.out.println("something wrong");
+            throw new RuntimeException(output.getMessage());
+        }
+
         return output;
     }
 

@@ -57,6 +57,11 @@ public class GithubCommitController {
 
         loadCommitUseCase.execute(input, output);
 
+        if(output.getMessage() != null) {
+            System.out.println("something wrong");
+            throw new RuntimeException(output.getMessage());
+        }
+
         return output;
     }
 
