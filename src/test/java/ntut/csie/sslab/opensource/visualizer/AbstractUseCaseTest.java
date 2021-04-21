@@ -7,6 +7,9 @@ import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.load.LoadComm
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.load.LoadIssueUseCase;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.load.LoadIssueUseCaseImpl;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.pullrequest.GithubPullRequestRepository;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.pullrequest.load.LoadPullRequestUseCase;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.pullrequest.load.LoadPullRequestUseCaseImpl;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.load.LoadTagUseCase;
@@ -37,6 +40,9 @@ public abstract class AbstractUseCaseTest {
     protected GithubIssueRepository githubIssueRepository;
 
     @Autowired
+    protected GithubPullRequestRepository githubPullRequestRepository;
+
+    @Autowired
     protected GithubRepoRepository githubRepoRepository;
 
     @Autowired
@@ -56,5 +62,9 @@ public abstract class AbstractUseCaseTest {
 
     protected LoadTagUseCase newLoadTagUseCase() {
         return new LoadTagUseCaseImpl(githubAPICaller, githubTagRepository, githubRepoRepository);
+    }
+
+    protected LoadPullRequestUseCase newLoadPullRequestUseCase() {
+        return new LoadPullRequestUseCaseImpl(githubAPICaller, githubPullRequestRepository, githubRepoRepository);
     }
 }

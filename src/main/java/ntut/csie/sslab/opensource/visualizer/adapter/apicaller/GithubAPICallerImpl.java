@@ -4,6 +4,7 @@ import ntut.csie.sslab.opensource.visualizer.adapter.presenter.GithubUserInfo;
 import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAPICaller;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.commit.GithubCommitDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueDTO;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.pullrequest.GithubPullRequestDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagDTO;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
@@ -128,6 +129,7 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                     JSONArray issuesJSON = GithubAPIV3Caller.getIssuesAndPullRequestsInfoWithPagination(
                             repoOwner,
                             repoName,
+                            sinceTime,
                             finalI,
                             accessToken
                     );
@@ -161,6 +163,77 @@ public class GithubAPICallerImpl implements GithubAPICaller {
         }
 
         return issueDTOs;
+    }
+
+    @Override
+    public List<GithubPullRequestDTO> getPullRequests(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken) throws InterruptedException {
+        int totalCount = GithubAPIV3Caller.getIssueAndPullRequestTotalCount(repoOwner, repoName, sinceTime, accessToken);
+
+        final Object lock = new Object();
+        List<GithubPullRequestDTO> pullRequestDTOs = new ArrayList<>();
+        List<Thread> githubPullRequestLoaders = new ArrayList<>();
+        for (int i = 1; i <= (totalCount/100)+1; i++) {
+            int finalI = i;
+            Thread githubPullRequestLoader = new Thread(() -> {
+                try {
+                    JSONArray issuesJSON = GithubAPIV3Caller.getIssuesAndPullRequestsInfoWithPagination(
+                            repoOwner,
+                            repoName,
+                            sinceTime,
+                            finalI,
+                            accessToken
+                    );
+                    for (int j = 0; j < issuesJSON.length(); j++) {
+                        JSONObject issueJSON = issuesJSON.getJSONObject(j);
+                        if (issueJSON.has("pull_request")) {
+                            int number = issueJSON.getInt("number");
+                            JSONObject pullRequestJSON = GithubAPIV4Caller.getPullRequestWithNumber(repoOwner, repoName, number, accessToken)
+                                    .getJSONObject("data")
+                                    .getJSONObject("repository")
+                                    .getJSONObject("pullRequest");
+
+                            JSONArray reviewRequestJSONs = pullRequestJSON.getJSONObject("reviewRequests").getJSONArray("nodes");
+                            JSONArray reviewJSONs = pullRequestJSON.getJSONObject("reviews").getJSONArray("nodes");
+                            List<String> reviewers = new ArrayList<>();
+
+                            if (reviewRequestJSONs.length() > 0) {
+                                for (int k = 0; k < reviewRequestJSONs.length(); k++) {
+                                    reviewers.add(reviewRequestJSONs.getJSONObject(k).getJSONObject("requestedReviewer").getString("login"));
+                                }
+                            } else if (reviewJSONs.length() > 0) {
+                                for (int k = 0; k < reviewJSONs.length(); k++) {
+                                    reviewers.add(reviewJSONs.getJSONObject(k).getJSONObject("author").getString("login"));
+                                }
+                            }
+
+                            GithubPullRequestDTO pullRequestDTO = new GithubPullRequestDTO(
+                                    pullRequestJSON.getString("id"),
+                                    repoId,
+                                    number,
+                                    issueJSON.getString("state"),
+                                    Instant.parse(issueJSON.getString("created_at")),
+                                    Instant.parse(issueJSON.getString("updated_at")),
+                                    issueJSON.getString("closed_at").equals("null") ? null : Instant.parse(issueJSON.getString("closed_at")),
+                                    reviewers
+                            );
+                            synchronized (lock) {
+                                pullRequestDTOs.add(pullRequestDTO);
+                            }
+                        }
+                    }
+                } catch (JSONException e) {
+                    throw new RuntimeException(e.getCause());
+                }
+            });
+            githubPullRequestLoaders.add(githubPullRequestLoader);
+            githubPullRequestLoader.start();
+        }
+
+        for (Thread thread : githubPullRequestLoaders) {
+            thread.join();
+        }
+
+        return pullRequestDTOs;
     }
 
     @Override
@@ -346,6 +419,41 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                     .block();
             return new JSONObject(responseString);
         }
+
+        public static JSONObject getPullRequestWithNumber(String repoOwner, String repoName, int number, String accessToken) throws JSONException {
+            Map<String, Object> map = new HashMap<>();
+            map.put("query",
+                    "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {\n" +
+                        "pullRequest(number: " + number + ") {\n" +
+                            "id\n" +
+                            "reviewRequests(first: 100) {\n" +
+                                "nodes {\n" +
+                                    "requestedReviewer {\n" +
+                                        "... on User {\n" +
+                                            "login" +
+                                        "}\n" +
+                                    "}\n" +
+                                "}\n" +
+                            "}\n" +
+                            "reviews(first: 100) {\n" +
+                                "nodes {\n" +
+                                    "state\n" +
+                                    "author {\n" +
+                                        "login" +
+                                    "}\n" +
+                                "}\n" +
+                            "}\n" +
+                        "}\n" +
+                    "}}");
+            String responseString = webClient.post()
+                    .uri("/graphql")
+                    .body(BodyInserters.fromObject(map))
+                    .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
+                    .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
+                    .block();
+
+            return new JSONObject(responseString);
+        }
     }
 
     private static class GithubAPIV3Caller {
@@ -366,35 +474,9 @@ public class GithubAPICallerImpl implements GithubAPICaller {
             return parseInt(totalCount);
         }
 
-        public static JSONArray getIssuesAndPullRequestsInfoWithPagination(String repoOwner, String repoName, int page, String accessToken) throws JSONException {
+        public static JSONArray getIssuesAndPullRequestsInfoWithPagination(String repoOwner, String repoName, Instant sinceTime, int page, String accessToken) throws JSONException {
             String responseString = webClient.get()
-                    .uri(String.format("/repos/%s/%s/issues?per_page=100&state=all&page=%d", repoOwner, repoName, page))
-                    .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                    .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
-                    .block();
-            return new JSONArray(responseString);
-        }
-
-        public static int getTagTotalCount(String repoOwner, String repoName, String accessToken) {
-            String totalCount = webClient.get()
-                    .uri(String.format("/repos/%s/%s/tags?per_page=1", repoOwner, repoName))
-                    .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                    .exchangeToMono(clientResponse -> {
-                        List<String> links = clientResponse.headers().header("Link");
-                        if (links.isEmpty()) {
-                            return Mono.just("1");
-                        } else {
-                            String lastPage = Arrays.stream(links.get(0).split(", ")).filter(x -> x.contains("last")).findAny().get();
-                            return Mono.just(StringUtils.substringBetween(lastPage, "&page=", ">;"));
-                        }
-                    })
-                    .block();
-            return parseInt(totalCount);
-        }
-
-        public static JSONArray getTagsInfoWithPagination(String repoOwner, String repoName, int page, String accessToken) throws JSONException {
-            String responseString = webClient.get()
-                    .uri(String.format("/repos/%s/%s/tags?per_page=100&page=%d", repoOwner, repoName, page))
+                    .uri(String.format("/repos/%s/%s/issues?per_page=100&state=all&since=%s&page=%d", repoOwner, repoName, sinceTime.toString(), page))
                     .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
                     .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
                     .block();

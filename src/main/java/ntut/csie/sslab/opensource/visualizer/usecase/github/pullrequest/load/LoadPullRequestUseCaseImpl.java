@@ -1,10 +1,10 @@
-package ntut.csie.sslab.opensource.visualizer.usecase.github.issue.load;
+package ntut.csie.sslab.opensource.visualizer.usecase.github.pullrequest.load;
 
 import ntut.csie.sslab.opensource.visualizer.usecase.apicaller.GithubAPICaller;
 import ntut.csie.sslab.opensource.visualizer.usecase.common.ExitCode;
 import ntut.csie.sslab.opensource.visualizer.usecase.common.Output;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueDTO;
-import ntut.csie.sslab.opensource.visualizer.usecase.github.issue.GithubIssueRepository;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.pullrequest.GithubPullRequestDTO;
+import ntut.csie.sslab.opensource.visualizer.usecase.github.pullrequest.GithubPullRequestRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,45 +14,46 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public class LoadIssueUseCaseImpl implements LoadIssueUseCase {
+public class LoadPullRequestUseCaseImpl implements LoadPullRequestUseCase {
     private final GithubAPICaller githubAPICaller;
-    private final GithubIssueRepository githubIssueRepository;
+    private final GithubPullRequestRepository githubPullRequestRepository;
     private final GithubRepoRepository githubRepoRepository;
 
     @Autowired
-    public LoadIssueUseCaseImpl(GithubAPICaller githubAPICaller, GithubIssueRepository githubIssueRepository, GithubRepoRepository githubRepoRepository) {
+    public LoadPullRequestUseCaseImpl(GithubAPICaller githubAPICaller, GithubPullRequestRepository githubPullRequestRepository, GithubRepoRepository githubRepoRepository) {
         this.githubAPICaller = githubAPICaller;
-        this.githubIssueRepository = githubIssueRepository;
+        this.githubPullRequestRepository = githubPullRequestRepository;
         this.githubRepoRepository = githubRepoRepository;
     }
 
     @Override
-    public void execute(LoadIssueInput input, Output output) {
+    public void execute(LoadPullRequestInput input, Output output) {
         GithubRepoDTO repo = githubRepoRepository.findByOwnerAndName(input.getRepoOwner(), input.getRepoName()).orElse(null);
         if (repo == null) {
             repo = new GithubRepoDTO(UUID.randomUUID().toString(), input.getRepoOwner(), input.getRepoName());
             githubRepoRepository.save(repo);
         }
 
-        Optional<GithubIssueDTO> latestIssue = githubIssueRepository.findLatest(repo.getId());
-        Instant sinceTime = latestIssue.isPresent() ? latestIssue.get().getUpdatedAt() : Instant.EPOCH;
+        Optional<GithubPullRequestDTO> latestPullRequest = githubPullRequestRepository.findLatest(repo.getId());
+        Instant sinceTime = latestPullRequest.isPresent() ? latestPullRequest.get().getUpdatedAt() : Instant.EPOCH;
 
         try {
-            List<GithubIssueDTO> issueDTOs = githubAPICaller.getIssues(repo.getId(), repo.getOwner(), repo.getName(), sinceTime, input.getAccessToken());
-            githubIssueRepository.save(issueDTOs);
+            List<GithubPullRequestDTO> pullRequestDTOs = githubAPICaller.getPullRequests(repo.getId(), repo.getOwner(), repo.getName(), sinceTime, input.getAccessToken());
+            githubPullRequestRepository.save(pullRequestDTOs);
             output.setExitCode(ExitCode.SUCCESS);
         } catch (Exception e) {
             output.setExitCode(ExitCode.FAILURE);
             output.setMessage(e.getMessage());
         }
+
     }
 
     @Override
-    public LoadIssueInput newInput() {
-        return new LoadIssueInputImpl();
+    public LoadPullRequestInput newInput() {
+        return new LoadPullRequestInputImpl();
     }
 
-    private class LoadIssueInputImpl implements LoadIssueInput {
+    private class LoadPullRequestInputImpl implements LoadPullRequestInput {
         private String repoOwner;
         private String repoName;
         private String accessToken;

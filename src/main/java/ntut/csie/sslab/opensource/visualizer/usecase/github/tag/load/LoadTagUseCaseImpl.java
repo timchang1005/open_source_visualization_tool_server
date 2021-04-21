@@ -7,6 +7,7 @@ import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.repo.GithubRepoRepository;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagDTO;
 import ntut.csie.sslab.opensource.visualizer.usecase.github.tag.GithubTagRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.UUID;
@@ -16,6 +17,7 @@ public class LoadTagUseCaseImpl implements LoadTagUseCase {
     private final GithubTagRepository githubTagRepository;
     private final GithubRepoRepository githubRepoRepository;
 
+    @Autowired
     public LoadTagUseCaseImpl(GithubAPICaller githubAPICaller, GithubTagRepository githubTagRepository, GithubRepoRepository githubRepoRepository) {
         this.githubAPICaller = githubAPICaller;
         this.githubTagRepository = githubTagRepository;
