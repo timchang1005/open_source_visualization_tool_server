@@ -3,6 +3,7 @@ package ntut.csie.sslab.opensource.visualizer.adapter.repository.github.pullrequ
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,4 +11,5 @@ import java.util.Optional;
 public interface GithubPullRequestRepositoryPeer extends CrudRepository<GithubPullRequestData, String> {
     List<GithubPullRequestData> findByRepoId(String repoId);
     Optional<GithubPullRequestData> findFirstByRepoIdOrderByUpdatedAtDesc(String repoId);
+    List<GithubPullRequestData> findByRepoIdAndCreatedAtAfter(String repoId, Instant sinceTime);
 }
