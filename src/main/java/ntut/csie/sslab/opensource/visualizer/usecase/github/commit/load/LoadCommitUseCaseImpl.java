@@ -46,6 +46,7 @@ public class LoadCommitUseCaseImpl implements LoadCommitUseCase {
         } catch (Exception e) {
             output.setExitCode(ExitCode.FAILURE);
             output.setMessage(e.getMessage());
+            e.printStackTrace();
         }
     }
 

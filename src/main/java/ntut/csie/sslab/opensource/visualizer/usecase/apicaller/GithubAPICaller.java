@@ -14,6 +14,6 @@ public interface GithubAPICaller {
     GithubUserInfo getUserInfo(String userId, String accessToken);
     List<GithubCommitDTO> getCommits(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken) throws JSONException, InterruptedException;
     List<GithubIssueDTO> getIssues(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken) throws InterruptedException;
-    List<GithubTagDTO> getTags(String repoId, String repoOwner, String repoName, String accessToken) throws JSONException;
+    List<GithubTagDTO> getTags(String repoId, String repoOwner, String repoName, String accessToken) throws JSONException, InterruptedException;
     List<GithubPullRequestDTO> getPullRequests(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken) throws InterruptedException;
 }
