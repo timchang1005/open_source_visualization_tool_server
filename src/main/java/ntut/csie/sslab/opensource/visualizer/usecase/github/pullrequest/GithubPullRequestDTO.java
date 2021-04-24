@@ -18,5 +18,4 @@ public class GithubPullRequestDTO {
     private Instant createdAt;
     private Instant updatedAt;
     private Instant closedAt;
-    private List<String> reviewers;
 }

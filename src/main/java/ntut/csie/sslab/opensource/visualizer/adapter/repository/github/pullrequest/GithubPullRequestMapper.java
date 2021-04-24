@@ -16,8 +16,7 @@ public class GithubPullRequestMapper {
                 data.getState(),
                 data.getCreatedAt(),
                 data.getUpdatedAt(),
-                data.getClosedAt(),
-                Arrays.stream(data.getReviewers().split(",")).collect(Collectors.toList())
+                data.getClosedAt()
         );
     }
 
@@ -26,10 +25,6 @@ public class GithubPullRequestMapper {
     }
 
     public static GithubPullRequestData transformToData(GithubPullRequestDTO dto) {
-        if (dto.getReviewers().stream().collect(Collectors.joining(",")).length() > 1000) {
-            System.out.println(dto.getNumber());
-            System.out.println(dto.getReviewers().stream().collect(Collectors.joining(",")));
-        }
         return new GithubPullRequestData(
                 dto.getId(),
                 dto.getRepoId(),
@@ -37,8 +32,7 @@ public class GithubPullRequestMapper {
                 dto.getState(),
                 dto.getCreatedAt(),
                 dto.getUpdatedAt(),
-                dto.getClosedAt(),
-                dto.getReviewers().stream().collect(Collectors.joining(","))
+                dto.getClosedAt()
         );
     }
 

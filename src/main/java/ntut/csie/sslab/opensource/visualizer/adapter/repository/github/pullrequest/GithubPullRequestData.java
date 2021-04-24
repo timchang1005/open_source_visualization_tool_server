@@ -36,8 +36,4 @@ public class GithubPullRequestData {
     private Instant updatedAt;
 
     private Instant closedAt;
-
-    @NotNull
-    @Column(length = 3000)
-    private String reviewers;
 }

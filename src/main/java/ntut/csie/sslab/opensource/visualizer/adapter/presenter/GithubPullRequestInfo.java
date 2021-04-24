@@ -18,7 +18,6 @@ public class GithubPullRequestInfo {
     private final String createdAt;
     private final String updatedAt;
     private final String closedAt;
-    private final List<String> reviewers;
 
     public static GithubPullRequestInfo fromDTO(GithubPullRequestDTO pullRequest, String repoOwner, String repoName) {
         return new GithubPullRequestInfo(
@@ -29,8 +28,7 @@ public class GithubPullRequestInfo {
                 pullRequest.getState(),
                 pullRequest.getCreatedAt().toString(),
                 pullRequest.getUpdatedAt().toString(),
-                pullRequest.getClosedAt() == null ? null : pullRequest.getClosedAt().toString(),
-                pullRequest.getReviewers()
+                pullRequest.getClosedAt() == null ? null : pullRequest.getClosedAt().toString()
         );
     }
 

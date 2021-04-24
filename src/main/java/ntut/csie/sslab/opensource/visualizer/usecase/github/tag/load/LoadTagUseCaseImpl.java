@@ -26,7 +26,7 @@ public class LoadTagUseCaseImpl implements LoadTagUseCase {
 
     @Override
     public void execute(LoadTagInput input, Output output) {
-        GithubRepoDTO repo = githubRepoRepository.findByOwnerAndName(input.getRepoOwner(), input.getRepoName()).get();
+        GithubRepoDTO repo = githubRepoRepository.findByOwnerAndName(input.getRepoOwner(), input.getRepoName()).orElse(null);
         if (repo == null) {
             repo = new GithubRepoDTO(UUID.randomUUID().toString(), input.getRepoOwner(), input.getRepoName());
             githubRepoRepository.save(repo);

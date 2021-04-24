@@ -17,6 +17,8 @@ import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -123,11 +125,12 @@ public class GithubAPICallerImpl implements GithubAPICaller {
         int totalCount = GithubAPIV3Caller.getIssueAndPullRequestTotalCount(repoOwner, repoName, sinceTime, accessToken);
 
         final Object lock = new Object();
-        List<GithubIssueDTO> issueDTOs = new ArrayList<>();
+        List<GithubIssueDTO> issuesFromGithub = new ArrayList<>();
         List<Thread> githubIssueLoaders = new ArrayList<>();
         for (int i = 1; i <= (totalCount/100)+1; i++) {
             int finalI = i;
             Thread githubIssueLoader = new Thread(() -> {
+                List<GithubIssueDTO> issueDTOs = new ArrayList<>();
                 try {
                     JSONArray issuesJSON = GithubAPIV3Caller.getIssuesAndPullRequestsInfoWithPagination(
                             repoOwner,
@@ -148,290 +151,122 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                                     Instant.parse(issueJSON.getString("updated_at")),
                                     issueJSON.getString("closed_at").equals("null") ? null : Instant.parse(issueJSON.getString("closed_at"))
                             );
-                            synchronized (lock) {
-                                issueDTOs.add(issueDTO);
-                            }
+                            issueDTOs.add(issueDTO);
                         }
                     }
+                    synchronized (lock) {
+                        issuesFromGithub.addAll(issueDTOs);
+                    }
                 } catch (Exception e) {
+                    e.printStackTrace();
                     throw new RuntimeException(e.getCause());
                 }
             });
             githubIssueLoaders.add(githubIssueLoader);
-            githubIssueLoader.start();
         }
 
-        for (Thread thread : githubIssueLoaders) {
-            thread.join();
+        for (int i = 0; i < githubIssueLoaders.size(); i++) {
+            githubIssueLoaders.get(i).start();
         }
 
-        return issueDTOs;
-    }
-
-    private List<GithubPullRequestDTO> getOpenPullRequests(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken) throws JSONException, InterruptedException {
-        String cursor = "";
-        boolean hasNextPage = true;
-        List<GithubPullRequestDTO> pullRequestsFromGithub = new ArrayList<>();
-        while (hasNextPage) {
-            JSONObject pullRequestsCompleteJSON = GithubAPIV4Caller.getOpenPullRequestsWithPagination(
-                    repoOwner,
-                    repoName,
-                    cursor,
-                    accessToken
-            );
-            JSONArray pullRequestsJSON = pullRequestsCompleteJSON.getJSONObject("data")
-                    .getJSONObject("repository")
-                    .getJSONObject("pullRequests")
-                    .getJSONArray("edges");
-            for (int i = 0; i < pullRequestsJSON.length(); i++) {
-                JSONObject pullRequestJSON = pullRequestsJSON.getJSONObject(i).getJSONObject("node");
-                String updatedAt = pullRequestJSON.getString("updatedAt");
-                if (Instant.parse(updatedAt).isBefore(sinceTime)) {
-                    hasNextPage = false;
-                    break;
-                }
-                String id = pullRequestJSON.getString("id");
-                int number = pullRequestJSON.getInt("number");
-                String createdAt = pullRequestJSON.getString("createdAt");
-                List<String> reviewers = new ArrayList<>();
-                JSONArray requestedReviewersJSON = pullRequestJSON.getJSONObject("reviewRequests").getJSONArray("nodes");
-                JSONArray reviewersJSON = pullRequestJSON.getJSONObject("reviews").getJSONArray("nodes");
-                for (int j = 0; j < requestedReviewersJSON.length(); j++) {
-                    reviewers.add(requestedReviewersJSON.getJSONObject(j).getJSONObject("requestedReviewer").getString("login"));
-                }
-                for (int j = 0; j < reviewersJSON.length(); j++) {
-                    if (!reviewersJSON.getJSONObject(j).isNull("author")) {
-                        reviewers.add(reviewersJSON.getJSONObject(j).getJSONObject("author").getString("login"));
-                    }
-                }
-
-                GithubPullRequestDTO pullRequest = new GithubPullRequestDTO(
-                        id,
-                        repoId,
-                        number,
-                        "OPEN",
-                        Instant.parse(createdAt),
-                        Instant.parse(updatedAt),
-                        null,
-                        reviewers
-                );
-
-                pullRequestsFromGithub.add(pullRequest);
-            }
-            JSONObject pageInfo = pullRequestsCompleteJSON.getJSONObject("data")
-                    .getJSONObject("repository")
-                    .getJSONObject("pullRequests")
-                    .getJSONObject("pageInfo");
-            cursor = pageInfo.getString("endCursor");
-            hasNextPage = hasNextPage && pageInfo.getBoolean("hasNextPage");
-        }
-        return pullRequestsFromGithub;
-    }
-
-    private List<GithubPullRequestDTO> getClosedPullRequests(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken) throws JSONException, InterruptedException {
-        final Object lock = new Object();
-        List<GithubPullRequestDTO> pullRequestsFromGithub = new ArrayList<>();
-        List<String> cursors = new ArrayList<>();
-        cursors.add("");
-        cursors.addAll(GithubAPIV4Caller.getClosedPullRequestsCursors(repoOwner, repoName, sinceTime, accessToken));
-        List<Thread> closedPullRequestsLoaders = cursors.stream().map(cursor -> new Thread(() -> {
-            List<GithubPullRequestDTO> pullRequestsReady = new ArrayList<>();
-            try {
-                JSONObject pullRequestsCompleteJSON = GithubAPIV4Caller.getClosedPullRequestsWithPagination(
-                        repoOwner,
-                        repoName,
-                        cursor,
-                        accessToken
-                );
-                JSONArray pullRequestsJSON = pullRequestsCompleteJSON.getJSONObject("data")
-                        .getJSONObject("repository")
-                        .getJSONObject("pullRequests")
-                        .getJSONArray("nodes");
-                for (int i = 0; i < pullRequestsJSON.length(); i++) {
-                    JSONObject pullRequestJSON = pullRequestsJSON.getJSONObject(i);
-                    String updatedAt = pullRequestJSON.getString("updatedAt");
-                    if (Instant.parse(updatedAt).isBefore(sinceTime)) {
-                        break;
-                    }
-                    String id = pullRequestJSON.getString("id");
-                    int number = pullRequestJSON.getInt("number");
-                    String createdAt = pullRequestJSON.getString("createdAt");
-                    String closedAt = pullRequestJSON.getString("closedAt");
-                    List<String> reviewers = new ArrayList<>();
-                    JSONArray requestedReviewersJSON = pullRequestJSON.getJSONObject("reviewRequests").getJSONArray("nodes");
-                    JSONArray reviewersJSON = pullRequestJSON.getJSONObject("reviews").getJSONArray("nodes");
-                    for (int j = 0; j < requestedReviewersJSON.length(); j++) {
-                        reviewers.add(requestedReviewersJSON.getJSONObject(j).getJSONObject("requestedReviewer").getString("login"));
-                    }
-                    for (int j = 0; j < reviewersJSON.length(); j++) {
-                        if (!reviewersJSON.getJSONObject(j).isNull("author")) {
-                            reviewers.add(reviewersJSON.getJSONObject(j).getJSONObject("author").getString("login"));
-                        }
-                    }
-                    JSONArray closerJSON = pullRequestJSON.getJSONObject("timelineItems").getJSONArray("nodes");
-                    if (closerJSON.length() != 0) {
-                        if (!closerJSON.getJSONObject(0).isNull("actor")) {
-                            reviewers.add(closerJSON.getJSONObject(0).getJSONObject("actor").getString("login"));
-                        }
-                    }
-
-                    GithubPullRequestDTO pullRequest = new GithubPullRequestDTO(
-                            id,
-                            repoId,
-                            number,
-                            "CLOSED",
-                            Instant.parse(createdAt),
-                            Instant.parse(updatedAt),
-                            Instant.parse(closedAt),
-                            reviewers.stream().distinct().collect(Collectors.toList())
-                    );
-
-                    pullRequestsReady.add(pullRequest);
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e.getCause());
-            }
-            synchronized (lock) {
-                pullRequestsFromGithub.addAll(pullRequestsReady);
-            }
-        })).collect(Collectors.toList());
-
-        for (Thread thread : closedPullRequestsLoaders) {
-            thread.start();
+        for (int i = 0; i < githubIssueLoaders.size(); i++) {
+            githubIssueLoaders.get(i).join();
         }
 
-        for (Thread thread : closedPullRequestsLoaders) {
-            thread.join();
-        }
-
-        return pullRequestsFromGithub;
-    }
-
-    private List<GithubPullRequestDTO> getMergedPullRequests(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken) throws JSONException, InterruptedException {
-        final Object lock = new Object();
-        List<GithubPullRequestDTO> pullRequestsFromGithub = new ArrayList<>();
-        List<String> cursors = new ArrayList<>();
-        cursors.add("");
-        cursors.addAll(GithubAPIV4Caller.getMergedPullRequestsCursors(repoOwner, repoName, sinceTime, accessToken));
-        List<Thread> closedPullRequestsLoaders = cursors.stream().map(cursor -> new Thread(() -> {
-            List<GithubPullRequestDTO> pullRequestsReady = new ArrayList<>();
-            try {
-                JSONObject pullRequestsCompleteJSON = GithubAPIV4Caller.getMergedPullRequestsWithPagination(
-                        repoOwner,
-                        repoName,
-                        cursor,
-                        accessToken
-                );
-                JSONArray pullRequestsJSON = pullRequestsCompleteJSON.getJSONObject("data")
-                        .getJSONObject("repository")
-                        .getJSONObject("pullRequests")
-                        .getJSONArray("nodes");
-                for (int i = 0; i < pullRequestsJSON.length(); i++) {
-                    JSONObject pullRequestJSON = pullRequestsJSON.getJSONObject(i);
-                    String updatedAt = pullRequestJSON.getString("updatedAt");
-                    if (Instant.parse(updatedAt).isBefore(sinceTime)) {
-                        break;
-                    }
-                    String id = pullRequestJSON.getString("id");
-                    int number = pullRequestJSON.getInt("number");
-                    String createdAt = pullRequestJSON.getString("createdAt");
-                    String closedAt = pullRequestJSON.getString("closedAt");
-                    List<String> reviewers = new ArrayList<>();
-                    JSONArray requestedReviewersJSON = pullRequestJSON.getJSONObject("reviewRequests").getJSONArray("nodes");
-                    JSONArray reviewersJSON = pullRequestJSON.getJSONObject("reviews").getJSONArray("nodes");
-                    for (int j = 0; j < requestedReviewersJSON.length(); j++) {
-                        reviewers.add(requestedReviewersJSON.getJSONObject(j).getJSONObject("requestedReviewer").getString("login"));
-                    }
-                    for (int j = 0; j < reviewersJSON.length(); j++) {
-                        if (!reviewersJSON.getJSONObject(j).isNull("author")) {
-                            reviewers.add(reviewersJSON.getJSONObject(j).getJSONObject("author").getString("login"));
-                        }
-                    }
-                    JSONArray closerJSON = pullRequestJSON.getJSONObject("timelineItems").getJSONArray("nodes");
-                    if (closerJSON.length() != 0) {
-                        if (!closerJSON.getJSONObject(0).isNull("actor")) {
-                            reviewers.add(closerJSON.getJSONObject(0).getJSONObject("actor").getString("login"));
-                        }
-                    }
-
-                    GithubPullRequestDTO pullRequest = new GithubPullRequestDTO(
-                            id,
-                            repoId,
-                            number,
-                            "MERGED",
-                            Instant.parse(createdAt),
-                            Instant.parse(updatedAt),
-                            Instant.parse(closedAt),
-                            reviewers.stream().distinct().collect(Collectors.toList())
-                    );
-
-                    pullRequestsReady.add(pullRequest);
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e.getCause());
-            }
-            synchronized (lock) {
-                pullRequestsFromGithub.addAll(pullRequestsReady);
-            }
-        })).collect(Collectors.toList());
-
-        for (Thread thread : closedPullRequestsLoaders) {
-            thread.start();
-        }
-
-        for (Thread thread : closedPullRequestsLoaders) {
-            thread.join();
-        }
-
-        return pullRequestsFromGithub;
+        return issuesFromGithub;
     }
 
     @Override
     public List<GithubPullRequestDTO> getPullRequests(String repoId, String repoOwner, String repoName, Instant sinceTime, String accessToken) throws InterruptedException {
+        List<GithubPullRequestDTO> pullRequestFromGithub = new ArrayList<>();
         final Object lock = new Object();
-        List<GithubPullRequestDTO> result = new ArrayList<>();
-        Thread getOpenPullRequestsThread = new Thread(() -> {
-            List<GithubPullRequestDTO> pullRequests = new ArrayList<>();
-            try {
-                pullRequests = getOpenPullRequests(repoId, repoOwner, repoName, sinceTime, accessToken);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            synchronized (lock) {
-                result.addAll(pullRequests);
-            }
-        });
-        Thread getClosedPullRequestThread = new Thread(() -> {
-            List<GithubPullRequestDTO> pullRequests = new ArrayList<>();
-            try {
-                pullRequests = getClosedPullRequests(repoId, repoOwner, repoName, sinceTime, accessToken);
-            } catch (JSONException | InterruptedException e) {
-                e.printStackTrace();
-            }
-            synchronized (lock) {
-                result.addAll(pullRequests);
-            }
-        });
-        Thread getMergedPullRequestThread = new Thread(() -> {
-            List<GithubPullRequestDTO> pullRequests = new ArrayList<>();
-            try {
-                pullRequests = getMergedPullRequests(repoId, repoOwner, repoName, sinceTime, accessToken);
-            } catch (JSONException | InterruptedException e) {
-                e.printStackTrace();
-            }
-            synchronized (lock) {
-                result.addAll(pullRequests);
-            }
-        });
+        List<Thread> githubPullRequestLoaders = new ArrayList<>();
+        if (sinceTime.equals(Instant.EPOCH)) {
+            int totalCount = GithubAPIV3Caller.getPullRequestTotalCount(repoOwner, repoName, accessToken);
 
-        getOpenPullRequestsThread.start();
-        getClosedPullRequestThread.start();
-        getMergedPullRequestThread.start();
+            for (int i = 1; i <= (totalCount/100)+1; i++) {
+                int finalI = i;
+                Thread githubPullRequestLoader = new Thread(() -> {
+                    List<GithubPullRequestDTO> pullRequestsLoaded = new ArrayList<>();
+                    try {
+                        JSONArray pullRequestsJSON = GithubAPIV3Caller.getPullRequestsInfoWithPagination(
+                                repoOwner,
+                                repoName,
+                                finalI,
+                                accessToken
+                        );
+                        for (int j = 0; j < pullRequestsJSON.length(); j++) {
+                            JSONObject pullRequestJSON = pullRequestsJSON.getJSONObject(j);
+                            GithubPullRequestDTO pullRequestDTO = new GithubPullRequestDTO(
+                                    pullRequestJSON.getString("node_id"),
+                                    repoId,
+                                    pullRequestJSON.getInt("number"),
+                                    pullRequestJSON.isNull("merged_at") ? "merged" : pullRequestJSON.getString("state"),
+                                    Instant.parse(pullRequestJSON.getString("created_at")),
+                                    Instant.parse(pullRequestJSON.getString("updated_at")),
+                                    pullRequestJSON.isNull("closed_at") ? null : Instant.parse(pullRequestJSON.getString("closed_at"))
+                            );
+                            pullRequestsLoaded.add(pullRequestDTO);
+                        }
 
-        getOpenPullRequestsThread.join();
-        getClosedPullRequestThread.join();
-        getMergedPullRequestThread.join();
-        return result;
+                        synchronized (lock) {
+                            pullRequestFromGithub.addAll(pullRequestsLoaded);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new RuntimeException(e.getCause());
+                    }
+                });
+                githubPullRequestLoaders.add(githubPullRequestLoader);
+                githubPullRequestLoader.start();
+            }
+        } else {
+            int totalCount = GithubAPIV3Caller.getIssueAndPullRequestTotalCount(repoOwner, repoName, sinceTime, accessToken);
+
+            for (int i = 1; i <= (totalCount/100)+1; i++) {
+                int finalI = i;
+                Thread githubPullRequestLoader = new Thread(() -> {
+                    List<GithubPullRequestDTO> pullRequestsLoaded = new ArrayList<>();
+                    try {
+                        JSONArray pullRequestsJSON = GithubAPIV3Caller.getIssuesAndPullRequestsInfoWithPagination(
+                                repoOwner,
+                                repoName,
+                                sinceTime,
+                                finalI,
+                                accessToken
+                        );
+                        for (int j = 0; j < pullRequestsJSON.length(); j++) {
+                            JSONObject eachJSON = pullRequestsJSON.getJSONObject(j);
+                            if (eachJSON.has("pull_request")) {
+                                JSONObject pullRequestJSON = GithubAPIV3Caller.getPullRequestWithNumber(repoOwner, repoName, eachJSON.getInt("number"), accessToken);
+                                GithubPullRequestDTO pullRequestDTO = new GithubPullRequestDTO(
+                                        pullRequestJSON.getString("node_id"),
+                                        repoId,
+                                        pullRequestJSON.getInt("number"),
+                                        pullRequestJSON.isNull("merged_at") ? "merged" : pullRequestJSON.getString("state"),
+                                        Instant.parse(pullRequestJSON.getString("created_at")),
+                                        Instant.parse(pullRequestJSON.getString("updated_at")),
+                                        pullRequestJSON.isNull("closed_at") ? null : Instant.parse(pullRequestJSON.getString("closed_at"))
+                                );
+                                pullRequestsLoaded.add(pullRequestDTO);
+                            }
+                        }
+                        synchronized (lock) {
+                            pullRequestFromGithub.addAll(pullRequestsLoaded);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new RuntimeException(e.getCause());
+                    }
+                });
+                githubPullRequestLoaders.add(githubPullRequestLoader);
+                githubPullRequestLoader.start();
+            }
+        }
+        for (int i = 0; i < githubPullRequestLoaders.size(); i++) {
+            githubPullRequestLoaders.get(i).join();
+        }
+        return pullRequestFromGithub;
     }
 
     @Override
@@ -449,9 +284,9 @@ public class GithubAPICallerImpl implements GithubAPICaller {
             JSONArray tagsJSON = tagsCompleteJSON.getJSONObject("data")
                     .getJSONObject("repository")
                     .getJSONObject("refs")
-                    .getJSONArray("edges");
+                    .getJSONArray("nodes");
             for (int i = 0; i < tagsJSON.length(); i++) {
-                JSONObject tagJSON = tagsJSON.getJSONObject(i).getJSONObject("node");
+                JSONObject tagJSON = tagsJSON.getJSONObject(i);
                 String tagName = tagJSON.getString("name");
                 String oid = tagJSON.getJSONObject("target").getString("oid");
                 String tagger;
@@ -489,11 +324,9 @@ public class GithubAPICallerImpl implements GithubAPICaller {
     private static class GithubAPIV4Caller {
         public static JSONObject getCommitTotalCountAndStartCursor(String repoOwner, String repoName, Instant sinceTime, String accessToken) throws JSONException, InterruptedException {
             String responseString;
-            boolean firstRun = true;
+            AtomicBoolean needToWait = new AtomicBoolean(false);
             do {
-                if (firstRun) {
-                    firstRun = false;
-                } else {
+                if (needToWait.get()) {
                     Thread.sleep(2000);
                 }
                 Map<String, Object> graphQL = new HashMap<>();
@@ -516,19 +349,20 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                         .uri("/graphql")
                         .body(BodyInserters.fromObject(graphQL))
                         .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                        .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
+                        .exchangeToMono(clientResponse -> {
+                            needToWait.set(!clientResponse.headers().header("Retry-After").isEmpty());
+                            return clientResponse.bodyToMono(String.class);
+                        })
                         .block();
-            } while (responseString.contains("abuse"));
+            } while (needToWait.get());
             return new JSONObject(responseString);
         }
 
         public static JSONObject getCommitsInfoWithCursor(String repoOwner, String repoName, int last, String cursor, String accessToken) throws JSONException, InterruptedException {
             String responseString;
-            boolean firstRun = true;
+            AtomicBoolean needToWait = new AtomicBoolean(false);
             do {
-                if (firstRun) {
-                    firstRun = false;
-                } else {
+                if (needToWait.get()) {
                     Thread.sleep(2000);
                 }
                 Map<String, Object> map = new HashMap<>();
@@ -563,346 +397,65 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                         .uri("/graphql")
                         .body(BodyInserters.fromObject(map))
                         .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                        .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
+                        .exchangeToMono(clientResponse -> {
+                            needToWait.set(!clientResponse.headers().header("Retry-After").isEmpty());
+                            return clientResponse.bodyToMono(String.class);
+                        })
                         .block();
-            } while (responseString.contains("abuse"));
+            } while (needToWait.get());
             return new JSONObject(responseString);
         }
 
         public static JSONObject getTagsInfoWithPagination(String repoOwner, String repoName, String cursor, String accessToken) throws JSONException, InterruptedException {
             String responseString;
-            boolean firstRun = true;
+            AtomicBoolean needToWait = new AtomicBoolean(false);
             do {
-                if (firstRun) {
-                    firstRun = false;
-                } else {
+                if (needToWait.get()) {
                     Thread.sleep(2000);
                 }
                 Map<String, Object> map = new HashMap<>();
                 map.put("query",
                         "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {\n" +
-                                "refs(refPrefix: \"refs/tags/\", first: 100, after: \"" + cursor + "\") {\n" +
-                                "pageInfo {\n" +
-                                "hasNextPage\n" +
-                                "endCursor\n" +
-                                "}\n" +
-                                "edges {" +
-                                "cursor\n" +
-                                "node {\n" +
-                                "name\n" +
-                                "target {\n" +
-                                "... on Tag {\n" +
-                                "tagger {\n" +
-                                "date\n" +
-                                "user {\n" +
-                                "login\n" +
-                                "}\n" +
-                                "}\n" +
-                                "oid\n" +
-                                "}\n" +
-                                "... on Commit {\n" +
-                                "committedDate\n" +
-                                "committer {\n" +
-                                "user {\n" +
-                                "login\n" +
-                                "}\n" +
-                                "}\n" +
-                                "oid\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}}");
-                responseString = webClient.post()
-                        .uri("/graphql")
-                        .body(BodyInserters.fromObject(map))
-                        .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                        .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
-                        .block();
-            } while (responseString.contains("abuse"));
-            return new JSONObject(responseString);
-        }
-
-        public static JSONObject getOpenPullRequestsWithPagination(String repoOwner, String repoName, String cursor, String accessToken) throws JSONException, InterruptedException {
-            String responseString;
-            boolean firstRun = true;
-            do {
-                if (firstRun) {
-                    firstRun = false;
-                } else {
-                    Thread.sleep(2000);
-                }
-                Map<String, Object> map = new HashMap<>();
-                map.put("query",
-                        "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {\n" +
-                                "pullRequests(states: OPEN, orderBy: {field: UPDATED_AT, direction: DESC}, first: 100" + (cursor.equals("") ? cursor : ", after: \"" + cursor + "\"") + ") {\n" +
-                                "pageInfo {\n" +
-                                "hasNextPage\n" +
-                                "endCursor\n" +
-                                "}\n" +
-                                "edges {" +
-                                "node {\n" +
-                                "id\n" +
-                                "number\n" +
-                                "createdAt\n" +
-                                "updatedAt\n" +
-                                "closedAt\n" +
-                                "reviewRequests(first: 100) {\n" +
-                                "nodes {\n" +
-                                "requestedReviewer {\n" +
-                                "... on User {\n" +
-                                "login\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "reviews(first: 100) {\n" +
-                                "nodes {\n" +
-                                "author {\n" +
-                                "login" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}}");
-                responseString = webClient.post()
-                        .uri("/graphql")
-                        .body(BodyInserters.fromObject(map))
-                        .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                        .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
-                        .block();
-            } while (responseString.contains("abuse"));
-            return new JSONObject(responseString);
-        }
-
-        public static JSONObject getClosedPullRequestsWithPagination(String repoOwner, String repoName, String cursor, String accessToken) throws JSONException, InterruptedException {
-            String responseString;
-            boolean firstRun = true;
-            do {
-                if (firstRun) {
-                    firstRun = false;
-                } else {
-                    Thread.sleep(2000);
-                }
-                Map<String, Object> map = new HashMap<>();
-                map.put("query",
-                        "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {\n" +
-                                "pullRequests(states: CLOSED, orderBy: {field: UPDATED_AT, direction: DESC}, first: 100" + (cursor.equals("") ? cursor : ", after: \"" + cursor + "\"") + ") {\n" +
-                                "pageInfo {\n" +
-                                "hasNextPage\n" +
-                                "endCursor\n" +
-                                "}\n" +
-                                "nodes {\n" +
-                                "id\n" +
-                                "number\n" +
-                                "createdAt\n" +
-                                "updatedAt\n" +
-                                "closedAt\n" +
-                                "reviewRequests(first: 100) {\n" +
-                                "nodes {\n" +
-                                "requestedReviewer {\n" +
-                                "... on User {\n" +
-                                "login\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "reviews(first: 100) {\n" +
-                                "nodes {\n" +
-                                "author {\n" +
-                                "login" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "timelineItems(itemTypes: CLOSED_EVENT, first: 10) {\n" +
-                                "nodes {\n" +
-                                "... on ClosedEvent {\n" +
-                                "actor {\n" +
-                                "login" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}}");
-                responseString = webClient.post()
-                        .uri("/graphql")
-                        .body(BodyInserters.fromObject(map))
-                        .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                        .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
-                        .block();
-            } while (responseString.contains("abuse"));;
-            return new JSONObject(responseString);
-        }
-
-        public static List<String> getClosedPullRequestsCursors(String repoOwner, String repoName, Instant sinceTime, String accessToken) throws JSONException, InterruptedException {
-            String cursor = "";
-            boolean hasNextPage = true;
-            List<String> cursors = new ArrayList<>();
-            while (hasNextPage) {
-                Map<String, Object> map = new HashMap<>();
-                map.put("query",
-                        "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {\n" +
-                            "pullRequests(states: CLOSED, orderBy: {field: UPDATED_AT, direction: DESC}, first: 100" + (cursor.equals("") ? cursor : ", after: \"" + cursor + "\"") + ") {\n" +
+                            "refs(refPrefix: \"refs/tags/\", first: 100, after: \"" + cursor + "\") {\n" +
                                 "pageInfo {\n" +
                                     "hasNextPage\n" +
                                     "endCursor\n" +
                                 "}\n" +
                                 "nodes {\n" +
-                                    "updatedAt\n" +
+                                    "name\n" +
+                                    "target {\n" +
+                                        "... on Tag {\n" +
+                                            "tagger {\n" +
+                                                "date\n" +
+                                                "user {\n" +
+                                                    "login\n" +
+                                                "}\n" +
+                                            "}\n" +
+                                            "oid\n" +
+                                        "}\n" +
+                                        "... on Commit {\n" +
+                                            "committedDate\n" +
+                                            "committer {\n" +
+                                                "user {\n" +
+                                                    "login\n" +
+                                                "}\n" +
+                                            "}\n" +
+                                            "oid\n" +
+                                        "}\n" +
+                                    "}\n" +
                                 "}\n" +
                             "}\n" +
                         "}}");
-                String responseString = webClient.post()
-                        .uri("/graphql")
-                        .body(BodyInserters.fromObject(map))
-                        .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                        .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
-                        .block();
-                if (responseString.contains("abuse")) {
-                    Thread.sleep(2000);
-                    continue;
-                }
-                JSONObject responseJSON = new JSONObject(responseString);
-                JSONObject pageInfo = responseJSON.getJSONObject("data")
-                        .getJSONObject("repository")
-                        .getJSONObject("pullRequests")
-                        .getJSONObject("pageInfo");
-                JSONArray pullRequests = responseJSON.getJSONObject("data")
-                        .getJSONObject("repository")
-                        .getJSONObject("pullRequests")
-                        .getJSONArray("nodes");
-                hasNextPage = pageInfo.getBoolean("hasNextPage");
-                for (int i = 0; i < pullRequests.length(); i++) {
-                    String updatedAt = pullRequests.getJSONObject(i).getString("updatedAt");
-                    if (Instant.parse(updatedAt).isBefore(sinceTime)) {
-                        hasNextPage = false;
-                        break;
-                    }
-                }
-                if (hasNextPage) {
-                    cursor = pageInfo.getString("endCursor");
-                    cursors.add(cursor);
-                }
-            }
-            return cursors;
-        }
-
-        public static List<String> getMergedPullRequestsCursors(String repoOwner, String repoName, Instant sinceTime, String accessToken) throws JSONException, InterruptedException {
-            String cursor = "";
-            boolean hasNextPage = true;
-            List<String> cursors = new ArrayList<>();
-            while (hasNextPage) {
-                Map<String, Object> map = new HashMap<>();
-                map.put("query",
-                        "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {\n" +
-                            "pullRequests(states: MERGED, orderBy: {field: UPDATED_AT, direction: DESC}, first: 100" + (cursor.equals("") ? cursor : ", after: \"" + cursor + "\"") + ") {\n" +
-                                "pageInfo {\n" +
-                                    "hasNextPage\n" +
-                                    "endCursor\n" +
-                                "}\n" +
-                                "nodes {\n" +
-                                    "updatedAt\n" +
-                                "}\n" +
-                            "}\n" +
-                        "}}");
-                String responseString = webClient.post()
-                        .uri("/graphql")
-                        .body(BodyInserters.fromObject(map))
-                        .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                        .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
-                        .block();
-                if (responseString.contains("abuse")) {
-                    Thread.sleep(2000);
-                    continue;
-                }
-                JSONObject responseJSON = new JSONObject(responseString);
-                JSONObject pageInfo = responseJSON.getJSONObject("data")
-                        .getJSONObject("repository")
-                        .getJSONObject("pullRequests")
-                        .getJSONObject("pageInfo");
-                JSONArray pullRequests = responseJSON.getJSONObject("data")
-                        .getJSONObject("repository")
-                        .getJSONObject("pullRequests")
-                        .getJSONArray("nodes");
-                hasNextPage = pageInfo.getBoolean("hasNextPage");
-                for (int i = 0; i < pullRequests.length(); i++) {
-                    String updatedAt = pullRequests.getJSONObject(i).getString("updatedAt");
-                    if (Instant.parse(updatedAt).isBefore(sinceTime)) {
-                        hasNextPage = false;
-                        break;
-                    }
-                }
-                if (hasNextPage) {
-                    cursor = pageInfo.getString("endCursor");
-                    cursors.add(cursor);
-                }
-            }
-            return cursors;
-        }
-
-        public static JSONObject getMergedPullRequestsWithPagination(String repoOwner, String repoName, String cursor, String accessToken) throws JSONException, InterruptedException {
-            String responseString;
-            boolean firstRun = true;
-            do {
-                if (firstRun) {
-                    firstRun = false;
-                } else {
-                    Thread.sleep(2000);
-                }
-                Map<String, Object> map = new HashMap<>();
-                map.put("query",
-                        "{repository(owner: \"" + repoOwner + "\", name:\"" + repoName + "\") {\n" +
-                                "pullRequests(states: MERGED, orderBy: {field: UPDATED_AT, direction: DESC}, first: 100" + (cursor.equals("") ? cursor : ", after: \"" + cursor + "\"") + ") {\n" +
-                                "pageInfo {\n" +
-                                "hasNextPage\n" +
-                                "endCursor\n" +
-                                "}\n" +
-                                "nodes {\n" +
-                                "id\n" +
-                                "number\n" +
-                                "createdAt\n" +
-                                "updatedAt\n" +
-                                "closedAt\n" +
-                                "reviewRequests(first: 100) {\n" +
-                                "nodes {\n" +
-                                "requestedReviewer {\n" +
-                                "... on User {\n" +
-                                "login\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "reviews(first: 100) {\n" +
-                                "nodes {\n" +
-                                "author {\n" +
-                                "login" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "timelineItems(itemTypes: CLOSED_EVENT, first: 10) {\n" +
-                                "nodes {\n" +
-                                "... on ClosedEvent {\n" +
-                                "actor {\n" +
-                                "login" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}\n" +
-                                "}}");
                 responseString = webClient.post()
                         .uri("/graphql")
                         .body(BodyInserters.fromObject(map))
                         .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                        .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
+                        .exchangeToMono(clientResponse -> {
+                            needToWait.set(!clientResponse.headers().header("Retry-After").isEmpty());
+                            return clientResponse.bodyToMono(String.class);
+                        })
                         .block();
-            } while (responseString.contains("abuse"));
+            } while (needToWait.get());
             return new JSONObject(responseString);
         }
     }
@@ -932,21 +485,92 @@ public class GithubAPICallerImpl implements GithubAPICaller {
         }
 
         public static JSONArray getIssuesAndPullRequestsInfoWithPagination(String repoOwner, String repoName, Instant sinceTime, int page, String accessToken) throws JSONException, InterruptedException {
+            AtomicBoolean needToWait = new AtomicBoolean(false);
             String responseString;
-            boolean firstRun = true;
             do {
-                if (firstRun) {
-                    firstRun = false;
-                } else {
+                if (needToWait.get()) {
                     Thread.sleep(2000);
                 }
                 responseString = webClient.get()
                         .uri(String.format("/repos/%s/%s/issues?per_page=100&state=all&since=%s&page=%d", repoOwner, repoName, sinceTime.toString(), page))
                         .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
-                        .exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class))
+                        .exchangeToMono(clientResponse -> {
+                            needToWait.set(!clientResponse.headers().header("Retry-After").isEmpty());
+                            return clientResponse.bodyToMono(String.class);
+                        })
+                        .timeout(Duration.ofSeconds(5))
+                        .retry(5)
                         .block();
-            } while (responseString.contains("abuse"));
+            } while (needToWait.get());
+
             return new JSONArray(responseString);
+        }
+
+        public static int getPullRequestTotalCount(String repoOwner, String repoName, String accessToken) {
+            AtomicBoolean needToWait = new AtomicBoolean(false);
+            String totalCount;
+            do {
+                totalCount = webClient.get()
+                        .uri(String.format("/repos/%s/%s/pulls?per_page=1&state=all", repoOwner, repoName))
+                        .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
+                        .exchangeToMono(clientResponse -> {
+                            needToWait.set(!clientResponse.headers().header("Retry-After").isEmpty());
+
+                            List<String> links = clientResponse.headers().header("Link");
+                            if (links.isEmpty()) {
+                                return Mono.just("1");
+                            } else {
+                                String lastPage = Arrays.stream(links.get(0).split(", ")).filter(x -> x.contains("last")).findAny().get();
+                                return Mono.just(StringUtils.substringBetween(lastPage, "&page=", ">;"));
+                            }
+                        })
+                        .block();
+            } while (needToWait.get());
+            return parseInt(totalCount);
+        }
+
+        public static JSONArray getPullRequestsInfoWithPagination(String repoOwner, String repoName, int page, String accessToken) throws JSONException, InterruptedException {
+            AtomicBoolean needToWait = new AtomicBoolean(false);
+            String responseString;
+            do {
+                if (needToWait.get()) {
+                    Thread.sleep(2000);
+                }
+                responseString = webClient.get()
+                        .uri(String.format("/repos/%s/%s/pulls?per_page=100&state=all&page=%d", repoOwner, repoName, page))
+                        .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
+                        .exchangeToMono(clientResponse -> {
+                            needToWait.set(!clientResponse.headers().header("Retry-After").isEmpty());
+                            return clientResponse.bodyToMono(String.class);
+                        })
+                        .timeout(Duration.ofSeconds(5))
+                        .retry(5)
+                        .block();
+            } while (needToWait.get());
+
+            return new JSONArray(responseString);
+        }
+
+        public static JSONObject getPullRequestWithNumber(String repoOwner, String repoName, int number, String accessToken) throws InterruptedException, JSONException {
+            AtomicBoolean needToWait = new AtomicBoolean(false);
+            String responseString;
+            do {
+                if (needToWait.get()) {
+                    Thread.sleep(2000);
+                }
+                responseString = webClient.get()
+                        .uri(String.format("/repos/%s/%s/pulls/%d", repoOwner, repoName, number))
+                        .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken))
+                        .exchangeToMono(clientResponse -> {
+                            needToWait.set(!clientResponse.headers().header("Retry-After").isEmpty());
+                            return clientResponse.bodyToMono(String.class);
+                        })
+                        .timeout(Duration.ofSeconds(5))
+                        .retry(5)
+                        .block();
+            } while (needToWait.get());
+
+            return new JSONObject(responseString);
         }
     }
 }
