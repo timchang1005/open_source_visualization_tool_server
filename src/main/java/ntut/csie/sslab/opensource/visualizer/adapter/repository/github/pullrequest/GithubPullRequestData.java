@@ -35,5 +35,7 @@ public class GithubPullRequestData {
     @NotNull
     private Instant updatedAt;
 
+    private Instant mergedAt;
+
     private Instant closedAt;
 }

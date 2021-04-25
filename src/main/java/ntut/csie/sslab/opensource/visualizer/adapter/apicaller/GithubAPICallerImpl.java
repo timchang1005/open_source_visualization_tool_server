@@ -201,9 +201,10 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                                     pullRequestJSON.getString("node_id"),
                                     repoId,
                                     pullRequestJSON.getInt("number"),
-                                    pullRequestJSON.isNull("merged_at") ? "merged" : pullRequestJSON.getString("state"),
+                                    !pullRequestJSON.isNull("merged_at") ? "merged" : pullRequestJSON.getString("state"),
                                     Instant.parse(pullRequestJSON.getString("created_at")),
                                     Instant.parse(pullRequestJSON.getString("updated_at")),
+                                    pullRequestJSON.isNull("merged_at") ? null : Instant.parse(pullRequestJSON.getString("merged_at")),
                                     pullRequestJSON.isNull("closed_at") ? null : Instant.parse(pullRequestJSON.getString("closed_at"))
                             );
                             pullRequestsLoaded.add(pullRequestDTO);
@@ -243,9 +244,10 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                                         pullRequestJSON.getString("node_id"),
                                         repoId,
                                         pullRequestJSON.getInt("number"),
-                                        pullRequestJSON.isNull("merged_at") ? "merged" : pullRequestJSON.getString("state"),
+                                        !pullRequestJSON.isNull("merged_at") ? "merged" : pullRequestJSON.getString("state"),
                                         Instant.parse(pullRequestJSON.getString("created_at")),
                                         Instant.parse(pullRequestJSON.getString("updated_at")),
+                                        pullRequestJSON.isNull("merged_at") ? null : Instant.parse(pullRequestJSON.getString("merged_at")),
                                         pullRequestJSON.isNull("closed_at") ? null : Instant.parse(pullRequestJSON.getString("closed_at"))
                                 );
                                 pullRequestsLoaded.add(pullRequestDTO);

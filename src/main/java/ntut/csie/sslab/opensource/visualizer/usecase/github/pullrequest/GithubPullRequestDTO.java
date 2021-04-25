@@ -17,5 +17,6 @@ public class GithubPullRequestDTO {
     private String state;
     private Instant createdAt;
     private Instant updatedAt;
+    private Instant mergedAt;
     private Instant closedAt;
 }

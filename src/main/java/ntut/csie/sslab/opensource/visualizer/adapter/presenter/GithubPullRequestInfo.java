@@ -17,6 +17,7 @@ public class GithubPullRequestInfo {
     private final String state;
     private final String createdAt;
     private final String updatedAt;
+    private final String mergedAt;
     private final String closedAt;
 
     public static GithubPullRequestInfo fromDTO(GithubPullRequestDTO pullRequest, String repoOwner, String repoName) {
@@ -28,6 +29,7 @@ public class GithubPullRequestInfo {
                 pullRequest.getState(),
                 pullRequest.getCreatedAt().toString(),
                 pullRequest.getUpdatedAt().toString(),
+                pullRequest.getMergedAt() == null ? null : pullRequest.getMergedAt().toString(),
                 pullRequest.getClosedAt() == null ? null : pullRequest.getClosedAt().toString()
         );
     }

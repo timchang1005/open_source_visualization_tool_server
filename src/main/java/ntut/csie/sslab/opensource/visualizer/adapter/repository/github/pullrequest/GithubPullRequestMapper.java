@@ -16,6 +16,7 @@ public class GithubPullRequestMapper {
                 data.getState(),
                 data.getCreatedAt(),
                 data.getUpdatedAt(),
+                data.getMergedAt(),
                 data.getClosedAt()
         );
     }
@@ -32,6 +33,7 @@ public class GithubPullRequestMapper {
                 dto.getState(),
                 dto.getCreatedAt(),
                 dto.getUpdatedAt(),
+                dto.getMergedAt(),
                 dto.getClosedAt()
         );
     }
