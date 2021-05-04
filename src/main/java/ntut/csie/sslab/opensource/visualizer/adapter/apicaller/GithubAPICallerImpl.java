@@ -17,13 +17,11 @@ import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 import static java.lang.Integer.parseInt;
 
@@ -108,6 +106,7 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                         }
                     }
                 } catch (Exception e) {
+                    e.printStackTrace();
                     throw new RuntimeException(e.getCause());
                 }
             });
