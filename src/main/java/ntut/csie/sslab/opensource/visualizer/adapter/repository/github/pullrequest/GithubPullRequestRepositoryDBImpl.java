@@ -17,6 +17,7 @@ public class GithubPullRequestRepositoryDBImpl implements GithubPullRequestRepos
     @Autowired
     public GithubPullRequestRepositoryDBImpl(GithubPullRequestRepositoryPeer githubPullRequestRepositoryPeer) {
         this.githubPullRequestRepositoryPeer = githubPullRequestRepositoryPeer;
+        this.githubPullRequestRepositoryPeer.findAll(); // prevent from duplicate PRIMARY KEY
     }
 
     @Override

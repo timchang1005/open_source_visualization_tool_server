@@ -17,7 +17,6 @@ import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -499,8 +498,6 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                             needToWait.set(!clientResponse.headers().header("Retry-After").isEmpty());
                             return clientResponse.bodyToMono(String.class);
                         })
-                        .timeout(Duration.ofSeconds(5))
-                        .retry(5)
                         .block();
             } while (needToWait.get());
 
@@ -544,8 +541,6 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                             needToWait.set(!clientResponse.headers().header("Retry-After").isEmpty());
                             return clientResponse.bodyToMono(String.class);
                         })
-                        .timeout(Duration.ofSeconds(5))
-                        .retry(5)
                         .block();
             } while (needToWait.get());
 
@@ -566,8 +561,6 @@ public class GithubAPICallerImpl implements GithubAPICaller {
                             needToWait.set(!clientResponse.headers().header("Retry-After").isEmpty());
                             return clientResponse.bodyToMono(String.class);
                         })
-                        .timeout(Duration.ofSeconds(5))
-                        .retry(5)
                         .block();
             } while (needToWait.get());
 

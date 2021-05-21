@@ -18,6 +18,7 @@ public class GithubIssueRepositoryDBImpl implements GithubIssueRepository {
     @Autowired
     public GithubIssueRepositoryDBImpl(GithubIssueRepositoryPeer githubIssueRepositoryPeer) {
         this.githubIssueRepositoryPeer = githubIssueRepositoryPeer;
+        this.githubIssueRepositoryPeer.findAll(); // prevent from duplicate PRIMARY KEY
     }
 
     @Override
